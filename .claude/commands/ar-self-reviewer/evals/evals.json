@@ -1,0 +1,131 @@
+{
+  "skill_name": "ar-self-reviewer",
+  "_comment": "Evals for the framework-source project-noise gate. Each case exercises one finding-type enum (STACK_IDIOM_IN_SKILL, PROJECT_NOISE, PROJECT_SCOPED_ARTIFACT, UNGENERICIZED_EXAMPLE, RATIONALE_BLOAT, MISTIERED_RULE, VERSION_INCONSISTENCY) plus a clean control that must PASS. Run from the framework root. The skill resolves scope from `git diff main...HEAD`; for these cases the fixture file under evals/fixtures/ is passed to project-noise-lint.sh / a_sag_code_reviewer directly so the case is self-contained. The headline assertion for each case: the gate classifies the finding with the CORRECT enum + severity, and the clean control yields zero blocking findings.",
+  "enums": {
+    "finding_type": ["STACK_IDIOM_IN_SKILL", "PROJECT_NOISE", "PROJECT_SCOPED_ARTIFACT", "UNGENERICIZED_EXAMPLE", "RATIONALE_BLOAT", "MISTIERED_RULE", "VERSION_INCONSISTENCY"],
+    "severity": ["BLOCKING", "WARN", "INFO"]
+  },
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run /ar-self-reviewer on this framework change. The changed rule is evals/fixtures/leak-dto/api-conventions.md.txt. Tell me whether it introduces project-based noise and what to fix.",
+      "expected_output": "The gate flags the example DTO as UNGENERICIZED_EXAMPLE / BLOCKING: the names ReserveRequest, checkoutRef, tierId, usdToUserCurrencyFactor, ratePlanType reveal a specific source project's business domain even though no literal project string appears. project-noise-lint.sh returns zero candidates for this file (domain names are not regex-detectable), so the finding MUST come from the judgment pass, proving the judgment pass is doing work the lint cannot. The fix proposed is neutral names (CreateOrderRequest / orderRef / itemId / unitPrice / orderType).",
+      "files": ["evals/fixtures/leak-dto/api-conventions.md.txt"],
+      "assertions": [
+        "Classifies the finding as UNGENERICIZED_EXAMPLE with BLOCKING severity",
+        "Identifies at least usdToUserCurrencyFactor and ratePlanType (or RatePlanType) as the domain-revealing names",
+        "Notes that project-noise-lint.sh alone returns zero candidates here, so the finding came from the judgment pass",
+        "Proposes neutral replacement names rather than only saying 'rename it'",
+        "Does NOT claim a literal project name string was found (there is none, the leak is in the naming)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Self-review this framework rule change before I commit: evals/fixtures/mechanical-noise/some-rule.md.txt",
+      "expected_output": "project-noise-lint.sh surfaces every mechanical signal and the gate classifies them: the absolute dev path ~/repos/widget-service and literal package com.example.widgetservice and ticket ACME-412 and email rami.k@example.com and commit SHA a1b2c3d4e5f6 and date 2026-03-14 → PROJECT_NOISE; the 'added in v1.1.0' / 'previously was' phrasing → RATIONALE_BLOAT. All BLOCKING (or RATIONALE_BLOAT at least WARN). Verdict BLOCKED.",
+      "files": ["evals/fixtures/mechanical-noise/some-rule.md.txt"],
+      "assertions": [
+        "Flags the absolute path /Volumes/... as PROJECT_NOISE",
+        "Flags com.example.widgetservice as PROJECT_NOISE (a literal package, not the {project} placeholder)",
+        "Flags the ticket id ACME-412 and the email rami.k@example.com as PROJECT_NOISE",
+        "Flags the commit SHA and the 2026-03-14 incident date as PROJECT_NOISE",
+        "Flags the 'added in v1.1.0 / previously was' phrasing as RATIONALE_BLOAT",
+        "Overall verdict is BLOCKED"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Run the framework self-review gate on evals/fixtures/clean-rule/api-conventions.md.txt, this should be clean.",
+      "expected_output": "Zero blocking findings. project-noise-lint.sh returns 0 candidates and the judgment pass confirms the example (CreateOrderRequest / itemId / unitPrice / OrderType) is a neutral illustration. Verdict PASS. The gate explicitly states a clean change is the expected good outcome and does not manufacture a finding.",
+      "files": ["evals/fixtures/clean-rule/api-conventions.md.txt"],
+      "assertions": [
+        "Reports zero BLOCKING findings",
+        "Verdict is PASS",
+        "Does not invent a finding to look thorough (no fabricated PROJECT_NOISE / UNGENERICIZED_EXAMPLE)",
+        "project-noise-lint.sh returns 0 candidates for this file"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I moved a rule full of Java/Spring annotations into rules/universal/. Run /ar-self-reviewer and tell me if that placement is wrong.",
+      "expected_output": "The gate flags MISTIERED_RULE / BLOCKING: stack-specific content (framework annotations, build-tool idioms) under rules/universal/ leaks it to every stack. The fix is to move it to the matching per-stack tier (e.g. rules/java-spring-boot/) or genericize it. This is a judgment-pass finding (tiering is not regex-detected).",
+      "files": [],
+      "assertions": [
+        "Classifies the placement as MISTIERED_RULE with BLOCKING severity",
+        "Explains that universal/ (or _generic/) content ships to every stack, so stack idioms must not live there",
+        "Recommends moving to the matching per-stack rules/ tier or genericizing"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "About to bump the framework version. config_hints.json says 1.1.0, CLAUDE.md header still says Version: v1.0.0, and the top CHANGELOG entry is ## v1.1.0. Run the self-review gate.",
+      "expected_output": "The version-consistency check fires: VERSION_INCONSISTENCY / BLOCKING because CLAUDE.md (1.0.0) disagrees with config_hints.json and CHANGELOG (1.1.0). The fix is to set the CLAUDE.md Version line to v1.1.0. The gate does not pass while the three version sources disagree.",
+      "files": [],
+      "assertions": [
+        "Detects the mismatch between CLAUDE.md (1.0.0) and config_hints.json / CHANGELOG (1.1.0)",
+        "Classifies it as VERSION_INCONSISTENCY with BLOCKING severity",
+        "Names CLAUDE.md as the file to correct to v1.1.0",
+        "Verdict is BLOCKED until the three sources agree"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Run /ar-self-reviewer. I added the string `gradlew test` and a `@RestController` example into a skill body at skills/ar-some-skill/SKILL.md.",
+      "expected_output": "generic-skill-lint.sh hard-fails on the stack idioms in a skill body; the gate classifies them STACK_IDIOM_IN_SKILL / BLOCKING and explains that skills/agents must stay stack-agnostic, the gradlew/@RestController idioms belong in a per-stack rule, with the skill deferring to it via the config_hints command seam. This is the one signal that is BLOCKING straight from the lint exit code, no judgment needed.",
+      "files": [],
+      "assertions": [
+        "Classifies the idioms as STACK_IDIOM_IN_SKILL with BLOCKING severity",
+        "Attributes the hard fail to generic-skill-lint.sh (not the judgment pass)",
+        "Explains stack-specifics belong in rules/ with the skill deferring via the command seam",
+        "Verdict is BLOCKED"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Run /ar-self-reviewer on this framework change. It adds a new doc, evals/fixtures/project-scoped-doc/acme-spring-boot-feedback.md.txt. My framework is project-agnostic, does this belong here?",
+      "expected_output": "The gate flags the file as PROJECT_SCOPED_ARTIFACT / BLOCKING: it is bound to ONE specific project (named in the filename, declares a `Source project:`, body dominated by 'acme' references). project-noise-lint.sh surfaces it via the filename signal, the Source-project line, and the slug-density count. The verdict: the framework keeps only the distilled GENERIC rules a change produced; this project-specific feedback/analysis belongs in the source project or scratch space, not committed to the framework. This is the regression class that the original skill MISSED because it exempted docs/, the fix brings docs/ into scope.",
+      "files": ["evals/fixtures/project-scoped-doc/acme-spring-boot-feedback.md.txt"],
+      "assertions": [
+        "Classifies the file as PROJECT_SCOPED_ARTIFACT with BLOCKING severity",
+        "Cites at least two of: the project-named filename, the `Source project:` line, the repeated 'acme' references",
+        "Recommends removing the file from the framework (or relocating to the source project), keeping only the generic rules it produced",
+        "Does NOT treat it as merely a few stray PROJECT_NOISE strings to scrub, the whole file is the problem"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Run /ar-self-reviewer on evals/fixtures/generic-doc/rule-tiering-decision.md.txt, a generic framework design doc. Confirm it's fine to keep.",
+      "expected_output": "Zero blocking findings. A generic design/decision doc with no single-project binding is exactly what docs/ is for. Verdict PASS. The gate does not flag a generic doc just for living in docs/, only project-BOUND docs are PROJECT_SCOPED_ARTIFACT.",
+      "files": ["evals/fixtures/generic-doc/rule-tiering-decision.md.txt"],
+      "assertions": [
+        "Reports zero BLOCKING findings",
+        "Verdict is PASS",
+        "Does not flag a generic, project-agnostic design doc as PROJECT_SCOPED_ARTIFACT"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Use ar-self-reviewer to review https://github.com/example-org/example-service/pull/455",
+      "expected_output": "The skill refuses: its input must be a mahsanamin/agentic-repos PR, and #455 belongs to a target project (example-service). It points the user to a_sk_l_review_pr / ar-global-pr-reviewer for target-project PRs and does not attempt a project-noise review (project-specific content is expected and correct in a project repo).",
+      "files": [],
+      "assertions": [
+        "Detects the PR is from example-service, not mahsanamin/agentic-repos",
+        "Refuses to run and explains it reviews agentic-repos PRs only",
+        "Redirects to a_sk_l_review_pr or ar-global-pr-reviewer for target-project PRs",
+        "Does not produce project-noise findings against the target-project PR"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Review framework PR #6 with ar-self-reviewer and post the findings.",
+      "expected_output": "First asks nothing extra (PR given), reviews PR #6, and presents findings as a draft in a_sk_l_review_pr comment style: each comment starts with a location line (📍 `path:line`), then a one-sentence Problem and one-sentence Fix, with a Post/Internal action. It shows the draft table and waits for the user to pick which to post before any batch POST to the PR, it does not post a freeform prose summary or auto-post.",
+      "files": [],
+      "assertions": [
+        "Presents findings as a draft and waits for user approval before posting",
+        "Each comment is location-first (📍 `path:line`) with one-sentence Problem and Fix, matching a_sk_l_review_pr format",
+        "Does not post a freeform narrative summary (no 'I ran our lens over this PR' preamble)",
+        "Posts as a single batch review only after the user selects comments"
+      ]
+    }
+  ]
+}

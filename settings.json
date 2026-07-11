@@ -1,0 +1,62 @@
+{
+  "_comment": "This framework repo's OWN Claude Code settings (it dogfoods the model). Autonomous posture so work here runs unblocked; the SessionStart workflow hook and the default-branch / force-push guard reference the repo-local scripts so they apply even before a global install. A target project gets its own autonomous settings from templates/settings.template.json via /ar-install, and the global hooks from install.sh. NOTE: the deny list is defense-in-depth, not a boundary (a prefix match, so it does not stop bash -c or rephrased commands); do NOT add Bash(bash:*) to allow, since that would let any denied command run via bash -c. The authoritative controls are the PreToolUse guard and server-side branch protection.",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git worktree:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(pwd:*)",
+      "Bash(mkdir:*)",
+      "Bash(echo:*)",
+      "Bash(which:*)",
+      "Bash(./install.sh:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -r:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git rebase:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/ar-session/session-start.sh\"" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/ar-session/guard-default-branch.sh\"" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "skill_name": "ar-install-tools",
+  "purpose": "Verify ar-install-tools is a thin wrapper around install.sh: it runs the framework's install.sh and reports the result. Prompts simulate against a temp HOME so nothing touches the real ~/.claude.",
+  "evals": [
+    {
+      "id": "runs-installer",
+      "prompt": "Invoke the ar-install-tools skill with HOME pointed at a temp dir (export HOME=<fixture> first so nothing touches the real home). It should run the framework's install.sh. Afterwards, list <fixture>/.claude/skills/ and confirm each directory in the framework's skills/ (those containing a SKILL.md) is present as a symlink under <fixture>/.claude/skills/. Write any mismatch to <fixture>/mismatch.txt (empty if none).",
+      "expected_output": "install.sh ran; every framework skill dir is linked under the temp HOME's .claude/skills/; mismatch.txt is empty. The set is discovered from skills/ at runtime, not a hardcoded list.",
+      "assertions": [
+        "the skill runs install.sh rather than copying files itself",
+        "every skills/<dir> with a SKILL.md exists as a symlink under <fixture>/.claude/skills/",
+        "no per-project files are written (this is the global layer only)"
+      ]
+    },
+    {
+      "id": "delegates-not-duplicates",
+      "prompt": "Using the ar-install-tools skill: state exactly what work the skill itself performs versus what install.sh performs, and what it does if install.sh reports a real directory blocking a skill symlink.",
+      "expected_output": "The skill is a thin wrapper: install.sh does all the work (bootstrap agentic-devkit, symlink skills, install scripts, wire hooks and shell-rc). The skill just runs it and reports. On a blocking real dir, it tells the user to re-run with -f. It never generates eval sets (evals ship as committed data).",
+      "assertions": [
+        "no eval-generation step is described",
+        "on a blocked symlink it recommends re-running install.sh with -f"
+      ]
+    }
+  ]
+}

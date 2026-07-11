@@ -1,0 +1,17 @@
+# Acme-Payments → Framework Feedback (Spring Boot)
+
+**Date:** 2026-06-11
+**Source project:** `acme/acme-payments/payments-service` (Java 21, Spring Boot, multi-module Gradle)
+
+## Method
+
+Three parallel analyses of the payments-service codebase mined 200 commits for
+recurring fix themes. Every candidate was deduped against the current framework.
+
+## Promotion candidates
+
+- **A1.** An acme-specific validation rule grown across 4 acme PRs.
+- **A2.** The acme checkout flow's main-account accessor pattern.
+- **B1.** `DiscountServiceTest` in acme failed on main when a hardcoded date arrived.
+
+Acme deleted 3 scheduled jobs that re-computed maintained state.

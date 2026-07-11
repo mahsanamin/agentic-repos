@@ -1,0 +1,7 @@
+# Some Rule
+
+Run the migration from `~/repos/widget-service` (the checkout root).
+
+Entities live in `com.example.widgetservice.server.entities`. This pattern was added
+in v7.3.0 after ACME-412, previously was a single mapper. Ping rami.k@example.com
+if the Flyway baseline (commit a1b2c3d4e5f6) needs a reset on 2026-03-14.

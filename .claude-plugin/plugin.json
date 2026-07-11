@@ -1,0 +1,8 @@
+{
+  "name": "agentic-repos",
+  "description": "Make any repository agent-ready: global ar-* driver skills (task flow, agent-ready rule extraction, optimizer, ticket creation, PR review) plus a session hook and default-branch guard that steer every session onto a consistent, safety-checked AI workflow. Builds on agentic-devkit.",
+  "version": "1.0.0",
+  "author": { "name": "Ahsan Amin" },
+  "homepage": "https://github.com/mahsanamin/agentic-repos",
+  "license": "MIT"
+}

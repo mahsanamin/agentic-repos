@@ -1,0 +1,49 @@
+{
+  "skill_name": "ar-upgrade",
+  "purpose": "Source-side release gate: verify ar-upgrade refreshes only a project's per-repo config + rules layer (never skills/agents, which are global), preserves project-tuned rule values, and nudges the global refresh. Run each prompt with a subagent that has ONLY this skill + the framework repo. Prompts build their own fixtures in a temp dir; no remote side effects.",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "precheck-requires-global-layer",
+      "prompt": "Using the ar-upgrade skill's Precheck (Phase 1a): simulate a machine where the global layer is NOT installed (no ar-* links under ~/.claude/skills and no agentic-devkit present). State exactly what the skill does before touching the target project.",
+      "expected_output": "It STOPs and tells the user to run ./install.sh from the framework root first; it does not attempt to refresh the project until the global layer is present.",
+      "assertions": [
+        "detects the missing global layer and halts",
+        "directs the user to run ./install.sh",
+        "does not proceed to modify the target project"
+      ]
+    },
+    {
+      "id": 2,
+      "eval_name": "refreshes-rules-not-skills",
+      "prompt": "Using the ar-upgrade skill: create a temp fixture target with .claude/config_hints.json containing framework_version 0.9.0 and a docs/ai-rules/ dir with existing rule files. State exactly which artifacts the upgrade rewrites in the target and which it never touches.",
+      "expected_output": "It refreshes only the per-repo config + rules layer (config_hints.json, AGENTS.md, rules under standards_location, templates, settings.json). It never installs or copies skills or agents (those are global) and never regenerates eval sets.",
+      "assertions": [
+        "names config/rules/templates/settings as the only things it rewrites in the target",
+        "explicitly does NOT copy skills or agents into the project",
+        "no skill-creator eval-generation step is mentioned"
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "smart-diff-preserves-project-rule-values",
+      "prompt": "Using the ar-upgrade skill's Phase 2 rule-merge logic: a target's installed rule file under docs/ai-rules/ contains the project-tuned line 'Use namespace OPS-XXX for all tickets' plus a block marked <!-- project-override -->. The framework's rule template has a generic '{namespace}-XXX' form and lacks the override block. Show the merged result for both regions and explain the rule that applied to each.",
+      "expected_output": "Both the real project value (OPS-XXX) and the project-override block are PRESERVED in the merge; the generic placeholder does not overwrite the tuned value.",
+      "assertions": [
+        "merged output keeps OPS-XXX (does not replace it with the generic {namespace}-XXX placeholder)",
+        "merged output keeps the <!-- project-override --> block",
+        "cites preserve-project-values as the justification"
+      ]
+    },
+    {
+      "id": 4,
+      "eval_name": "nudges-global-refresh",
+      "prompt": "Using the ar-upgrade skill's Phase 4: after refreshing a target's config + rules, state what it tells the developer to do to update the GLOBAL layer (the ar-* skills and scripts).",
+      "expected_output": "It nudges the developer to refresh the global layer with (cd \"$AR_FRAMEWORK_DIR\" && git pull && ./install.sh); it does not try to update global skills from inside the target project.",
+      "assertions": [
+        "instructs git pull + ./install.sh in $AR_FRAMEWORK_DIR",
+        "does not copy or update global skills from within the target"
+      ]
+    }
+  ]
+}

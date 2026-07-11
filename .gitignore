@@ -1,0 +1,35 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Claude Code per-user settings (never commit; user-specific)
+.claude/settings.local.json
+**/settings.local.json
+
+# Secrets / keys (defense-in-depth; none expected in this repo)
+*.pem
+*.key
+.env
+.env.*
+*.env
+
+# Scratch / temp
+tmp/
+*.log
+*.tmp
+
+# Local eval / optimizer working dirs (generated, not source)
+*-workspace/
+**/evals/*.local.json
+
+# Language tooling that might appear in test fixtures
+node_modules/
+__pycache__/
+.venv/

@@ -1,0 +1,12 @@
+# Rule Tiering, Decision (LOCKED)
+
+## Decision
+
+Rules live in tiers: `universal/` (cross-language principles), `_generic/`
+(stack-shaped but language-neutral), and per-stack dirs adapted by the installer.
+Stack idioms must never land in `universal/`.
+
+## Rationale
+
+A single source of truth per concept, adapted per stack at install time, keeps
+the framework project-agnostic while letting each target get idiomatic rules.

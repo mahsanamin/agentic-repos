@@ -1,0 +1,36 @@
+{
+  "skill_name": "ar-dd-api-performance",
+  "skill_version_note": "Updated 2026-06-06 after: env-first directories (DataDog/{Env}/API_Performance/), default window now-1d, session-only env/window overrides, auto commit+push step 8.",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run an API performance scan of our service and maintain the per-API optimization reports.",
+      "expected_output": "Traffic table; reports under {findings_root}/Backend/DataDog/Production/API_Performance/ (default env, capitalized); one report per API breaching p95>200ms or err>=5% and none below both gates; each report has fingerprint comment, 4-status taxonomy value, breakdown with code sites, History starting 'Initial report'; _index.md worst-first with run log.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Run the API performance scan again (consecutive run, overlapping window).",
+      "expected_output": "Change-detection invariant: unchanged-fingerprint reports byte-identical (md5); genuinely changed fingerprints (status flip or p95-bucket move) rewritten WITH a History row explaining what changed; only the env's _index.md always changes; run-log files-changed count excludes the index.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Copy the skill folder to a fresh repo with no ar-api-dd-compare and no paths.tasks_root, then invoke it.",
+      "expected_output": "Graceful fallbacks: inline heuristics catalog used; findings root resolves to .claude/performance-findings/; service auto-detect stops cleanly with no candidates; nothing persisted on failure (no config write-back, no orphan directories).",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Run the skill on staging (manual env override).",
+      "expected_output": "Env isolation: reports written ONLY under Backend/DataDog/Staging/API_Performance/ with own _index.md; zero production report files modified by the staging run; the env override is NOT persisted to skill.config (datadog_performance.env stays 'production'); staging-only environment artifacts (cold JVM, client aborts) are labeled as such, not turned into prod tickets.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Complete any run that changed report files.",
+      "expected_output": "Auto-persist: a git commit exists in the findings repo scoped to Backend/DataDog/ only (no unrelated workspace files swept in), with a descriptive 'dd-api-performance: {env} sweep' message, and it is pushed to origin; no commit on pure no-op runs.",
+      "files": []
+    }
+  ]
+}

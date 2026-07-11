@@ -1,0 +1,43 @@
+{
+  "skill_name": "ar-install",
+  "purpose": "Source-side release gate: verify ar-install's stack detection (language ≠ stack), genericize-never-borrow rule mapping, and config command seam. Prompts run ONLY the setup.md pre-detection/mapping logic against temp fixtures, no full install.",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "android-is-not-spring",
+      "prompt": "Using the ar-install skill's pre-detection (setup.md): create a temp fixture with build.gradle (containing 'com.android.application'), AndroidManifest.xml, and src/Main.kt with 'import android.os.Bundle'. Run the positive-evidence stack detection against it and write DETECTED_STACK and the resulting applicable_rule_dirs to <fixture>/detection.txt.",
+      "expected_output": "DETECTED_STACK=android; applicable_rule_dirs = [\"universal\", \"_generic\"], NOT java-spring-boot, despite Gradle + Java/Kotlin being present.",
+      "files": [],
+      "assertions": [
+        "detection.txt shows DETECTED_STACK=android",
+        "applicable_rule_dirs contains universal and _generic",
+        "applicable_rule_dirs does NOT contain java-spring-boot"
+      ]
+    },
+    {
+      "id": 2,
+      "eval_name": "spring-requires-positive-evidence",
+      "prompt": "Using the ar-install skill's pre-detection (setup.md): create two temp fixtures. Fixture A: build.gradle declaring 'org.springframework.boot' and src/Main.java with 'import org.springframework.boot.SpringApplication'. Fixture B: only a bare build.gradle with no Spring evidence anywhere. Run detection on both and write results to <fixtureA>/detection.txt and <fixtureB>/detection.txt.",
+      "expected_output": "A: DETECTED_STACK=java-spring-boot with applicable_rule_dirs including java-spring-boot. B: DETECTED_STACK=jvm-generic with applicable_rule_dirs = universal + _generic (no java-spring-boot, a build tool alone is not stack evidence).",
+      "files": [],
+      "assertions": [
+        "fixture A: DETECTED_STACK=java-spring-boot and applicable_rule_dirs includes java-spring-boot",
+        "fixture B: DETECTED_STACK=jvm-generic",
+        "fixture B: applicable_rule_dirs does NOT include java-spring-boot"
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "go-genericize-and-command-seam",
+      "prompt": "Using the ar-install skill's pre-detection + Step 10 config schema (setup.md): create a temp fixture with go.mod and a main.go importing 'github.com/gin-gonic/gin'. Run detection, then write the config_hints.json fragment the install would produce for the stack/command seam (stack, test_command, lint_command, verify.full_command) to <fixture>/config_fragment.json. Also state which rule dirs would be installed.",
+      "expected_output": "DETECTED_STACK=go; rule dirs = universal + _generic (never java-spring-boot/react); config fragment has stack=go and either a correct Go test command (go test ./...) or empty command fields (empty is acceptable, skills then read the repo's documented command); never a Gradle/Maven command.",
+      "files": [],
+      "assertions": [
+        "stack field equals go",
+        "rule dirs are universal + _generic only (no java-spring-boot, no react)",
+        "test_command is either empty or a Go-appropriate command, it is NOT gradlew/mvn/npm",
+        "no Java rule filenames (jpa-repositories, transaction-boundaries) appear anywhere in the output"
+      ]
+    }
+  ]
+}

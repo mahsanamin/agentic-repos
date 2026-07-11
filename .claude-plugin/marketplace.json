@@ -1,0 +1,11 @@
+{
+  "name": "agentic-repos",
+  "owner": { "name": "mahsanamin", "url": "https://github.com/mahsanamin" },
+  "plugins": [
+    {
+      "name": "agentic-repos",
+      "source": "./",
+      "description": "The AI-readiness layer: ar-* driver skills + session hook + default-branch guard. Install once, works in every repo."
+    }
+  ]
+}

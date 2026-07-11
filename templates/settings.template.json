@@ -1,0 +1,49 @@
+{
+  "_comment": "Per-project Claude Code settings written by /ar-install. AUTONOMOUS posture: the agentic flow (ar-taskflow and friends) runs end to end without stopping for permission prompts. defaultMode 'acceptEdits' auto-accepts file edits; the allow list covers the git + build + PR operations the flow performs; there is intentionally NO 'ask' list, so the flow never blocks on a routine action. Only genuinely destructive commands are denied. The SessionStart workflow hook and the default-branch / force-push guard are installed GLOBALLY by the framework's install.sh, so they are not duplicated here; they still apply. To run non-autonomously, add operations to an 'ask' array.",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git restore:*)",
+      "Bash(git worktree:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(file:*)",
+      "Bash(tree:*)",
+      "Bash(pwd:*)",
+      "Bash(mkdir:*)",
+      "Bash(echo:*)",
+      "Bash(which:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -r:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git rebase:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  }
+}

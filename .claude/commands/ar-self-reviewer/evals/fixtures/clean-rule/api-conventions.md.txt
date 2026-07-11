@@ -1,0 +1,16 @@
+### Declarative (Bean) Validation, prefer annotations over hand-rolled checks
+
+Null / blank / format / range / enum-membership checks belong as Jakarta Bean
+Validation annotations on the request DTO, not as hand-written checks in the controller.
+
+```java
+public class CreateOrderRequest {
+  @NotBlank                       private String orderRef;
+  @NotNull @Positive              private Integer itemId;
+  @NotNull @DecimalMin(value = "0", inclusive = false)
+                                  private BigDecimal unitPrice;
+  @NotNull                        private OrderType orderType;
+}
+```
+
+- Reject unknown enum values at the boundary.
