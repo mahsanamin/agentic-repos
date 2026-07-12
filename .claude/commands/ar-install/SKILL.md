@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Make a repo agent-ready by writing ONLY its per-project **config + rules** layer: `config_hints.json`, `AGENTS.md`, `.claude/skill.config`, an autonomous `.claude/settings.json` (permissions only), coding rules **extracted from the actual codebase** into `standards_location`, and PR/commit templates.
 
-This command does NOT install the global procedure. The `ar-*` skills, the devkit agents (`a_sag_*`) and atomic skills (`a_sk_*`), the worktree helpers (`a_g_worktree_*`), the framework scripts, the SessionStart hook, and the default-branch guard are all installed once per machine by `install.sh`. This command reads that global layer. It never copies skills/agents into the target, never installs scripts, and never writes hooks (the global session hook and default-branch guard already cover every repo).
+This command does NOT install the global procedure. The `ar-*` skills, the devkit agents (`a_sag_*`) and atomic skills (`a_sk_*`), the worktree helpers (`a_g_worktree_*`), the framework scripts, the SessionStart hook, and the default-branch guard are all installed once per machine by `install.sh`. This command reads that global layer. It never copies skills/agents into the target, never installs scripts, and never duplicates the global session hook or default-branch guard per repo (they already cover every repo). It can optionally write one committed opt-in hook, the global-layer precheck, which nudges teammates who cloned the repo without the global layer.
 
 Follow `setup.md`, referenced below by section name.
 
@@ -94,11 +94,12 @@ Run the **Config Writer** (`setup.md` -> **Config Writer**), then settings, temp
 1. `config_hints.json`: `setup.md` -> **Step: Create config_hints.json** (schema + `test_command` detection).
 2. `AGENTS.md`: `setup.md` -> **Step: Create AGENTS.md** (scanner-compat rules; build commands + structure from `_codemap.md`, rule list from `_install_manifest.json`).
 3. `.claude/skill.config`: `setup.md` -> **Step: Create .claude/skill.config**.
-4. `.claude/settings.json`: `setup.md` -> **Step: Write Autonomous Settings** (autonomous permissions from the template, merged not clobbered; no hooks, the global layer owns those).
-5. `CLAUDE.md`: the standard `@AGENTS.md` pointer.
-6. Templates: `setup.md` -> **Step: Setup Templates**.
-7. ERD (only if a database is detected): `setup.md` -> **Step: Generate ERD Documentation**.
-8. `.gitignore` / `.dockerignore`: `setup.md` -> **Step: Update .gitignore / .dockerignore**.
+4. `.claude/settings.json`: `setup.md` -> **Step: Write Autonomous Settings** (autonomous permissions from the template, merged not clobbered; no duplicated global hooks).
+5. (Optional) Global-layer precheck hook: `setup.md` -> **Step: Write Global-Layer Precheck Hook** (opt-in; default writes nothing).
+6. `CLAUDE.md`: the standard `@AGENTS.md` pointer.
+7. Templates: `setup.md` -> **Step: Setup Templates**.
+8. ERD (only if a database is detected): `setup.md` -> **Step: Generate ERD Documentation**.
+9. `.gitignore` / `.dockerignore`: `setup.md` -> **Step: Update .gitignore / .dockerignore**.
 
 ## Phase 5: Verify
 
