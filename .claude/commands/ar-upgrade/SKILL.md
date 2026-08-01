@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Bring an adopted repo's per-project **config + rules** layer up to the current framework version: re-adapt the applicable rules, refresh the framework-managed sections of `AGENTS.md`, merge any new autonomous permissions, bump `framework_version`, and re-verify. Preserve everything the team owns (extracted rules, tuned thresholds, deliberate overrides).
 
-Like `ar-install`, this touches ONLY the local layer. It does NOT copy `ar-*` skills or devkit agents, does NOT install scripts, and does NOT write hooks. The GLOBAL procedure is refreshed separately (see Phase 4). There is no migration: this is a clean v1, with nothing to migrate from.
+Like `ar-install`, this touches ONLY the local layer. It does NOT copy `ar-*` skills or devkit agents, does NOT install scripts, and does NOT duplicate the global workflow/guard hooks (it can, on request, add the opt-in global-layer precheck hook, see Phase 3). The GLOBAL procedure is refreshed separately (see Phase 4). There is no migration: this is a clean v1, with nothing to migrate from.
 
 Follow `setup.md`, referenced below by section name.
 
@@ -92,7 +92,7 @@ Adapt every stack-specific element to the target's real values (read them from `
 ## Phase 3: Finalize the Local Layer
 
 1. `config_hints.json`: set `framework_version` to `FRAMEWORK_VERSION`; run the `test_command` best-effort detection (only-if-empty) from `setup.md` -> **Step: Create config_hints.json**. Leave every other field verbatim.
-2. `.claude/settings.json`: run `setup.md` -> **Step: Write Autonomous Settings** in merge mode, so any new allow/deny entries from the current template land without clobbering the team's existing permissions. Still no hooks.
+2. `.claude/settings.json`: run `setup.md` -> **Step: Write Autonomous Settings** in merge mode, so any new allow/deny entries from the current template land without clobbering the team's existing permissions. Still no duplicated global hooks. If the user asks to add the opt-in global-layer precheck to this already-adopted repo, run `setup.md` -> **Step: Write Global-Layer Precheck Hook**.
 3. `AGENTS.md`: refresh only the framework-managed sections and the footer version.
 4. Verify: run `setup.md` -> **Step: Verification** against the rules, `AGENTS.md`, and `config_hints.json`. Fix and re-run until PASS.
 5. Redundancy sweep: if rule files changed in Phase 2, invoke `ar-optimizer` over `standards_location` to catch overlap introduced by the merge, then reconcile. Skip if no rules changed.

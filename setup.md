@@ -20,7 +20,7 @@ Agentic Repos splits into two layers (see `docs/ARCHITECTURE.md`):
 - **Procedure (global):** the `ar-*` driver skills, the devkit agents/skills, the worktree helpers, the SessionStart hook, and the default-branch guard. Installed ONCE per machine by `install.sh` as symlinks into the source repos. Reads the config layer at runtime.
 - **Config + Rules (local):** `config_hints.json`, `AGENTS.md`, `.claude/skill.config`, an autonomous `.claude/settings.json` (permissions only), the stack-adapted coding rules extracted into `standards_location`, and PR/commit templates. Written per repo by `ar-install`.
 
-`ar-install` and `ar-upgrade` write ONLY the local layer. They **never** copy `ar-*` skills or devkit agents into a target repo, and they **never** write hooks (the SessionStart workflow hook and the default-branch / force-push guard are wired GLOBALLY by `install.sh` into `~/.claude/settings.json`, so they already cover every repo and must not be duplicated per project). They **never** install framework scripts either: `install.sh` symlinks `scripts/ar-freshness`, `scripts/ar-sonarqube`, and `scripts/ar-session` into `~/.claude/scripts/`, so a skill referencing `~/.claude/scripts/ar-sonarqube/fetch-issues.sh` resolves from the global layer. Agents are invoked by name at runtime (`a_sag_*`), skills likewise (`a_sk_*`, `a_g_worktree_*`); because the global layer is on the machine, those names resolve in every project.
+`ar-install` and `ar-upgrade` write ONLY the local layer. They **never** copy `ar-*` skills or devkit agents into a target repo, and they **never** duplicate the global workflow/guard hooks per project (the SessionStart workflow hook and the default-branch / force-push guard are wired GLOBALLY by `install.sh` into `~/.claude/settings.json`, so they already cover every repo). The one narrow exception is the **opt-in global-layer precheck** (`setup.md` -> **Step: Write Global-Layer Precheck Hook**): it is the opposite of a duplicate, it fires only when the global layer is ABSENT and self-silences the moment it is present. They **never** install framework scripts either: `install.sh` symlinks `scripts/ar-freshness`, `scripts/ar-sonarqube`, and `scripts/ar-session` into `~/.claude/scripts/`, so a skill referencing `~/.claude/scripts/ar-sonarqube/fetch-issues.sh` resolves from the global layer. Agents are invoked by name at runtime (`a_sag_*`), skills likewise (`a_sk_*`, `a_g_worktree_*`); because the global layer is on the machine, those names resolve in every project.
 
 **Formatting rules for ALL generated files (AGENTS.md, CLAUDE.md, config, rule files):**
 - One blank line max between sections
@@ -391,6 +391,8 @@ This file contains no absolute paths and is safe to commit; the whole team share
 
 Structure: project name + description, Quick Start (Setup/Build/Test/Run from the detected commands), Project Structure (modules, key directories, package layout), Documentation links, and an Agentic Repos section pointing at `standards_location` for the rules and naming the global workflow (`ar-taskflow` for real work, `ar-record-improvement` to capture friction). End with a footer line showing the installed `framework_version`.
 
+Include a short **Prerequisites** subsection in the Agentic Repos section (this file is loaded every session via `CLAUDE.md`, so it reaches the reader even before any hook runs): the `ar-*` skills and devkit agents are a per-machine layer installed once with `./install.sh` (the complete path) or the Claude Code plugin (`ar-*` skills + hooks only, NOT agentic-devkit). Without it, this repo has no `ar-taskflow`, no review/PR agents, and no default-branch guard.
+
 ## Step: Create .claude/skill.config
 
 Per-repo paths and state that skills read (e.g. links to a paired tasks/docs workspace if any). Keep it minimal; only include paths that actually exist. Add `.claude/skill.config` and `.claude/settings.local.json` to `.gitignore` (see the .gitignore step).
@@ -399,7 +401,7 @@ Per-repo paths and state that skills read (e.g. links to a paired tasks/docs wor
 
 Write the target's `.claude/settings.json` from `{framework_path}/templates/settings.template.json`. This is an **autonomous permission posture**: `defaultMode: acceptEdits` plus an allow-list covering the git/build/PR/skill operations the flow performs, and NO "ask" list, so `ar-taskflow` and friends run end to end without stopping for permission prompts. Only genuinely destructive commands are denied.
 
-**Permissions only, no hooks.** The SessionStart workflow hook and the default-branch / force-push guard are wired GLOBALLY by `install.sh` into `~/.claude/settings.json`. They already apply to this repo and must NOT be duplicated here. If the template ever carried a `hooks` block, strip it before writing.
+**Permissions only; no duplicated global hooks.** The SessionStart workflow hook and the default-branch / force-push guard are wired GLOBALLY by `install.sh` into `~/.claude/settings.json`. They already apply to this repo and must NOT be duplicated here. If the template ever carried a `hooks` block, strip it before writing. (The only per-project hook this framework writes is the opt-in global-layer precheck below, which is not one of these global hooks and is added by its own step.)
 
 **Merge, do not clobber.** If the target already has `.claude/settings.json`, union its permissions with the template rather than overwriting the team's existing entries:
 
@@ -424,6 +426,39 @@ echo "Wrote autonomous permissions to $DEST (no hooks; global layer owns those).
 ```
 
 A project that wants non-autonomous behavior can add an `"ask"` array to this file afterward.
+
+## Step: Write Global-Layer Precheck Hook (Optional, opt-in)
+
+The `ar-*` skills, the devkit agents, and the global SessionStart/guard hooks are a per-machine layer that is deliberately NOT committed per repo. A teammate who clones an adopted repo **without** that layer gets no `ar-taskflow`, no review/PR agents, and no default-branch guard, and nothing signals it. This optional gate closes that gap by committing one small detector into the repo.
+
+**This is the one hook the framework writes per project, and it is opt-in (default: none).** It is NOT a duplicate of the global workflow/guard hooks: it fires ONLY when the global layer is ABSENT (exactly when those hooks cannot run) and self-silences the moment the layer is present, so the two never double-fire.
+
+Ask:
+
+```
+Emit a committed global-layer precheck? A teammate who clones this repo without
+the global layer installed will get an in-session install nudge.
+  1. No (default) - rely on the AGENTS.md Prerequisites section only
+  2. Yes, advisory - SessionStart banner, never blocks
+  3. Yes, enforce  - advisory banner + hard-block edits until the layer is installed
+```
+
+On choice 2 or 3, copy the reference hook:
+
+```bash
+mkdir -p .claude/hooks
+cp {framework_path}/templates/agentic-repos-precheck.sh .claude/hooks/agentic-repos-precheck.sh
+chmod +x .claude/hooks/agentic-repos-precheck.sh
+```
+
+Then wire it into the committed `.claude/settings.json` (merge, do not clobber existing entries):
+
+- **SessionStart** -> `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/agentic-repos-precheck.sh"` (advisory, exit 0).
+- **Choice 3 only, additionally PreToolUse** matching `Edit|Write|MultiEdit` -> the same script with `--block` (exit 2, blocks edits until the layer is installed).
+
+The script detects BOTH install paths (the `~/.claude/skills/ar-taskflow` symlink from `install.sh` OR a plugin install) plus the devkit agents; when the `ar-*` skills are present but devkit is not (a plugin-only install), it points the user to `./install.sh` for the complete layer. It is committed, so it travels with the repo.
+
+**Flag the cost:** choice 3 hard-blocks all edits until the layer is installed. Prefer choice 2 (a nudge) unless the team explicitly wants a wall.
 
 ## Step: Setup Templates
 
@@ -508,4 +543,4 @@ See `VERSIONING.md`. The canonical version is `framework_version` in the framewo
 
 ## Refreshing an Adopted Project
 
-`ar-upgrade` refreshes the local config + rules layer to the current framework version: re-run the applicable-rule adaptation, preserve project customizations (extracted rules, tuned thresholds, deliberate overrides), merge any new autonomous permissions into `.claude/settings.json`, bump `framework_version` in `config_hints.json` and the `AGENTS.md` footer, and run **Verification**. It never copies skills/agents, never installs scripts, and never writes hooks. To refresh the GLOBAL layer, it nudges the user to run `(cd "$AR_FRAMEWORK_DIR" && git pull && ./install.sh)`.
+`ar-upgrade` refreshes the local config + rules layer to the current framework version: re-run the applicable-rule adaptation, preserve project customizations (extracted rules, tuned thresholds, deliberate overrides), merge any new autonomous permissions into `.claude/settings.json`, bump `framework_version` in `config_hints.json` and the `AGENTS.md` footer, and run **Verification**. It never copies skills/agents, never installs scripts, and never duplicates the global workflow/guard hooks. On request it can add the opt-in global-layer precheck (`setup.md` -> **Step: Write Global-Layer Precheck Hook**) to an already-adopted repo. To refresh the GLOBAL layer, it nudges the user to run `(cd "$AR_FRAMEWORK_DIR" && git pull && ./install.sh)`.
