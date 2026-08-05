@@ -2,7 +2,7 @@
 
 You are operating on a machine with Agentic Repos installed. This file lives at `~/.claude/ar-framework-hints.md` (installed by `install.sh`) and is referenced from `~/.claude/CLAUDE.md`, so every Claude Code session picks it up. Do not edit it manually; re-run the installer to refresh.
 
-Agentic Repos is the AI-readiness layer. It builds on **agentic-devkit**, which supplies the reusable agents (`a_sag_*`), the atomic skills (`a_sk_commit`, `a_sk_pr`, `a_sk_l_review_pr`, `a_sk_sonarqube_coverage`), and the worktree helpers (`a_g_worktree_*`). Both are installed globally.
+Agentic Repos is the AI-readiness layer. It builds on **agentic-devkit**, which supplies the reusable agents (`a_sag_*`), the atomic skills (`a_sk_commit`, `a_sk_pr`, `a_sk_review_pr`, `a_sk_sonarqube_coverage`), and the worktree helpers (`a_g_worktree_*`). Both are installed globally.
 
 ## Global skills (available in any project)
 

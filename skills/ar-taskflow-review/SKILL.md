@@ -66,7 +66,7 @@ All review files go to `reviews_root` from `.claude/skill.config`, fully **git-i
     └── review-report.md                     ← Review iterations (appended)
 ```
 
-No **tracked** file is modified, the review is a local working artifact written only to the git-ignored `reviews_root`. If you need a permanent record, use `a_sk_l_review_pr` to post comments on the PR itself.
+No **tracked** file is modified, the review is a local working artifact written only to the git-ignored `reviews_root`. If you need a permanent record, use `a_sk_review_pr` to post comments on the PR itself.
 
 ## Implementation
 
@@ -451,5 +451,5 @@ Example commit message:
 - All review files are **git-ignored**, no **tracked** file is modified. The only writes are to git-ignored AI-framework paths (the `reviews_root` / `.claude/reviews/` fallback), which are git-ignored at install time; if they were not, those writes would dirty the repo.
 - Review output is saved to `reviews_root` from `.claude/skill.config` (falls back to `.claude/reviews/`)
 - Each run overwrites the diff and appends to the review report
-- To post review feedback permanently, use `a_sk_l_review_pr` to post comments on the PR
+- To post review feedback permanently, use `a_sk_review_pr` to post comments on the PR
 - Uses **project-specific a_sag_code_reviewer agent** which deeply understands project patterns

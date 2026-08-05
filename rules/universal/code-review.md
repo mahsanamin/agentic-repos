@@ -3,7 +3,7 @@ alwaysApply: false
 ---
 # Code Review Standards
 
-Shared knowledge base for all code review workflows. This file defines **what to check** - skills (`ar-taskflow-review`, `a_sk_l_review_pr`) define **how to drive** the review.
+Shared knowledge base for all code review workflows. This file defines **what to check** - skills (`ar-taskflow-review`, `a_sk_review_pr`) define **how to drive** the review.
 
 ## Review Agent
 
@@ -14,7 +14,7 @@ All reviews are performed by the project-specific code reviewer agent (e.g., `.c
 | Skill | When to Use |
 |-------|-------------|
 | `ar-taskflow-review` | During ar-taskflow workflow - after code implementation, before PR |
-| `a_sk_l_review_pr` | Standalone - review any PR by number or URL |
+| `a_sk_review_pr` | Standalone - review any PR by number or URL |
 
 Both skills generate a diff, load these rules, and delegate to the same agent.
 
@@ -142,4 +142,4 @@ Use these criteria to determine how severe an issue is. The invoking skill defin
 - Performance optimization that doesn't affect correctness
 - Method slightly over 30 lines
 
-**Output format**: Defined by the invoking skill (`a_sk_l_review_pr` or `ar-taskflow-review`), not this file. This file defines **what to check and how severe it is**.
+**Output format**: Defined by the invoking skill (`a_sk_review_pr` or `ar-taskflow-review`), not this file. This file defines **what to check and how severe it is**.

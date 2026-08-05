@@ -849,4 +849,4 @@ The clone at `~/ar-global-pr-reviewer/repos/$OWNER/$REPO/` is **always kept**, i
 - **Worktrees live alongside the clones** under `repos/$OWNER/WorkTrees/$REPO/`. The `a_g_worktree_*` helpers manage them.
 - **This skill never modifies the project's `main` or `master` branch**, only the `review-pr-{N}` local branch in a worktree.
 - **Comments are posted as YOU** (your authenticated `gh` user). The PR's other watchers will see them as your reviews. There's no "AI bot" identity for these.
-- **For multi-PR review** (a feature split across PRs): invoke the skill once per PR. Cross-PR analysis is out of scope for v1, use `a_sk_l_review_pr` from inside a checkout if you need that.
+- **For multi-PR review** (a feature split across PRs): invoke the skill once per PR. Cross-PR analysis is out of scope for v1, use `a_sk_review_pr` from inside a checkout if you need that.

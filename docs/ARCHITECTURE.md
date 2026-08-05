@@ -50,7 +50,7 @@ So `install.sh` **requires agentic-devkit** and bootstraps it if missing. What c
 | Need | Comes from | Not shipped here because |
 |---|---|---|
 | Code review, plan verify, commit/PR drafting, test running, doc writing | devkit agents (`a_sag_code_reviewer`, `a_sag_plan_verifier`, `a_sag_commit_writer`, `a_sag_pr_writer`, `a_sag_test_runner`, `a_sag_task_doc_writer`) | general-purpose producers, not AI-readiness specific |
-| One-shot commit / open PR / review a PR / raise coverage | devkit skills (`a_sk_commit`, `a_sk_pr`, `a_sk_l_review_pr`, `a_sk_sonarqube_coverage`) | atomic dev actions, reused everywhere |
+| One-shot commit / open PR / review a PR / raise coverage | devkit skills (`a_sk_commit`, `a_sk_pr`, `a_sk_review_pr`, `a_sk_sonarqube_coverage`) | atomic dev actions, reused everywhere |
 | Worktree management | devkit `a_g_worktree_*` | git ergonomics, not framework-specific |
 | The global symlink install mechanism | devkit's `a_c_skills` / `a_c_agents` | one install engine for both repos |
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.1.1, 2026-08-05
+
+**Summary:** Two bug fixes, a devkit skill name that does not exist, and a project-name normalisation that leaked whitespace into a directory name.
+
+**Cost note:** None. Both are corrections to existing behaviour; no new steps, round-trips, or wall-clock time on any path.
+
+**Fixed:**
+- **`a_sk_l_review_pr` is not a real skill.** The installed devkit skill is `a_sk_review_pr`. The bad name appeared 18 times across 9 files and did not resolve to anything. It also contradicted devkit's own naming scheme, where the `l_` modifier means "local-only" and applies to routines only (`a_r_l_*`); devkit's `CLAUDE.md` states "Never write `a_sk_l_*`". Because `rules/universal/code-review.md` is part of the installable rules layer and `templates/ar-framework-hints.md` is installed to `~/.claude/`, the wrong name was being written into every adopted repo and read by every session on the machine.
+- **Project names containing a space produced a malformed improvements directory.** `ar-record-improvement` Step 7 pascal-cased only snake/kebab/lower-case names; a name already starting with a capital passed through unchanged, whitespace included, so a `project.name` of "My Service" produced a directory literally named `My Service_AgenticRepos`. Whitespace is now a word separator alongside `_` and `-`, giving `My_Service_AgenticRepos`. Names already pascal or snake-cased are unaffected (`Example_Project` stays `Example_Project`). The same derivation in `ar-add-improvement` is fixed identically, the two skills resolve this directory independently and must agree on it.
+
+**Files changed:**
+- `rules/universal/code-review.md`, `templates/ar-framework-hints.md`, `CLAUDE.md`, `GUIDE.md`, `docs/ARCHITECTURE.md`, `skills/ar-taskflow-review/SKILL.md`, `skills/ar-global-pr-reviewer/SKILL.md`, `.claude/commands/ar-self-reviewer/SKILL.md`, `.claude/commands/ar-add-improvement/SKILL.md`, corrected the skill name; no logic changes.
+- `skills/ar-record-improvement/SKILL.md`, replaced the case-guarded pascal-case block with a single normalisation that treats whitespace as a separator.
+- `.claude/commands/ar-add-improvement/SKILL.md`, matching normalisation so both skills derive the same directory.
+- `config_hints.json`, `CLAUDE.md`, version bumped to 1.1.1.
+
 ## v1.1.0, 2026-07-12
 
 **Summary:** Optional, opt-in per-repo "global-layer precheck" hook so a teammate who clones an adopted repo without the machine-global layer gets an in-session install nudge instead of silent degradation.

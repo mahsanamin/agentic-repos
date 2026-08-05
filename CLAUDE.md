@@ -6,11 +6,11 @@
 
 This repository contains the SOURCE files for the Agentic Repos framework. It is not a project itself: it is the AI-readiness layer (driver skills, rules, templates, procedures) that gets INSTALLED so other repos run a consistent, safety-checked AI workflow.
 
-Version: v1.1.0
+Version: v1.1.1
 
 ## Depends on agentic-devkit
 
-Agentic Repos does NOT ship its own agents, atomic commit/PR/review skills, or worktree helpers. Those live in the separate `agentic-devkit` repo and are reused: `ar-*` skills invoke devkit agents by name (`a_sag_code_reviewer`, `a_sag_plan_verifier`, `a_sag_commit_writer`, `a_sag_pr_writer`, `a_sag_test_runner`, `a_sag_task_doc_writer`) and delegate atomic actions to devkit skills (`a_sk_commit`, `a_sk_pr`, `a_sk_l_review_pr`, `a_sk_sonarqube_coverage`) and worktree helpers (`a_g_worktree_*`). `./install.sh` bootstraps devkit if it is missing. See `docs/ARCHITECTURE.md`.
+Agentic Repos does NOT ship its own agents, atomic commit/PR/review skills, or worktree helpers. Those live in the separate `agentic-devkit` repo and are reused: `ar-*` skills invoke devkit agents by name (`a_sag_code_reviewer`, `a_sag_plan_verifier`, `a_sag_commit_writer`, `a_sag_pr_writer`, `a_sag_test_runner`, `a_sag_task_doc_writer`) and delegate atomic actions to devkit skills (`a_sk_commit`, `a_sk_pr`, `a_sk_review_pr`, `a_sk_sonarqube_coverage`) and worktree helpers (`a_g_worktree_*`). `./install.sh` bootstraps devkit if it is missing. See `docs/ARCHITECTURE.md`.
 
 ## Two layers (the whole model)
 

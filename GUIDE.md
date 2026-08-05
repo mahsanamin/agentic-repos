@@ -70,7 +70,7 @@ Two layers, two locations. The important correction over older docs: **skills ar
 - `~/.claude/settings.json`: a global `SessionStart` hook (steers every agent-ready session onto the workflow) and a `PreToolUse` default-branch and force-push guard.
 - Shell rc (`~/.zshrc` or `~/.bashrc`): exports `AR_FRAMEWORK_DIR` and sources the freshness check.
 - `~/.claude/ar-framework-hints.md` and a pointer block in `~/.claude/CLAUDE.md`: discovery hints for the `ar-*` catalog.
-- agentic-devkit, installed alongside: the reusable agents (`a_sag_*`), the atomic skills (`a_sk_commit`, `a_sk_pr`, `a_sk_l_review_pr`, `a_sk_sonarqube_coverage`), and the worktree helpers (`a_g_worktree_*`). The `ar-*` skills invoke these by name at runtime; because devkit is global, the names resolve in every repo.
+- agentic-devkit, installed alongside: the reusable agents (`a_sag_*`), the atomic skills (`a_sk_commit`, `a_sk_pr`, `a_sk_review_pr`, `a_sk_sonarqube_coverage`), and the worktree helpers (`a_g_worktree_*`). The `ar-*` skills invoke these by name at runtime; because devkit is global, the names resolve in every repo.
 
 Because the whole global layer is symlinks into the source repos, updating a team is `git pull` plus a re-run of `./install.sh`. Nothing is copied per machine, so nothing drifts.
 

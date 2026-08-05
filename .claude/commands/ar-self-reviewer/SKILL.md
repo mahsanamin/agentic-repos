@@ -16,7 +16,7 @@ Neither scans `rules/` for **business/project noise**, and `ar-add-improvement`'
 
 ## Input
 
-**This gate takes a framework PR as its input.** Its first action is always to ask which `mahsanamin/agentic-repos` PR to review (unless the user already named one). It reviews **agentic-repos PRs only**, for target-project PRs use `a_sk_l_review_pr` or `ar-global-pr-reviewer`.
+**This gate takes a framework PR as its input.** Its first action is always to ask which `mahsanamin/agentic-repos` PR to review (unless the user already named one). It reviews **agentic-repos PRs only**, for target-project PRs use `a_sk_review_pr` or `ar-global-pr-reviewer`.
 
 **Scope, it complements, does not duplicate.** This gate covers exactly one axis: *does this PR leak or bind a project into the project-agnostic framework.* It does **not** re-review correctness, security, tests, or style, CodeRabbit / SonarQube / human review own those (and on a framework PR, project-noise is precisely the axis they *don't* check). Don't restate their findings; report only the noise axis.
 
@@ -69,7 +69,7 @@ gh pr view "$PR" --repo mahsanamin/agentic-repos \
   --json number,title,headRefName,headRefOid,url,additions,changedFiles 2>/tmp/gh.err || { cat /tmp/gh.err; exit 2; }
 ```
 
-If the PR belongs to **any repo other than `mahsanamin/agentic-repos`, STOP and refuse**: "ar-self-reviewer reviews agentic-repos PRs only, for a target-project PR use `a_sk_l_review_pr` or `ar-global-pr-reviewer`." This gate's entire premise (the framework must stay project-agnostic) is meaningless for a project repo, which is *supposed* to be full of its own names.
+If the PR belongs to **any repo other than `mahsanamin/agentic-repos`, STOP and refuse**: "ar-self-reviewer reviews agentic-repos PRs only, for a target-project PR use `a_sk_review_pr` or `ar-global-pr-reviewer`." This gate's entire premise (the framework must stay project-agnostic) is meaningless for a project repo, which is *supposed* to be full of its own names.
 
 **Pre-PR fallback:** if invoked before a PR exists (e.g. mid-`ar-add-improvement`), the user can say "local" / "this branch", then skip the fetch and scope from the working tree (`git diff --name-only main...HEAD`), and at step 6 print the findings instead of posting them. Everything else is identical.
 
@@ -153,9 +153,9 @@ echo "config_hints=$cfg  CLAUDE.md=$cla  CHANGELOG=$chg"   # all three must matc
 
 All three must agree. A mismatch is `VERSION_INCONSISTENCY` / `BLOCKING`.
 
-### 7. Draft and post comments, `a_sk_l_review_pr` style
+### 7. Draft and post comments, `a_sk_review_pr` style
 
-Findings are delivered as **PR review comments in exactly the `a_sk_l_review_pr` format**, not a freeform prose summary. The bar is the same: every comment is a real problem the author needs to act on; a clean PR with zero comments is a good outcome; never manufacture findings to look thorough.
+Findings are delivered as **PR review comments in exactly the `a_sk_review_pr` format**, not a freeform prose summary. The bar is the same: every comment is a real problem the author needs to act on; a clean PR with zero comments is a good outcome; never manufacture findings to look thorough.
 
 **Two interaction points only:** Step 1 (which PR) and here (which comments to post). Everything between runs without asking.
 
@@ -168,7 +168,7 @@ Findings are delivered as **PR review comments in exactly the `a_sk_l_review_pr`
 **Fix:** Rename to a neutral example, `CreateOrderRequest` / `itemId` / `unitPrice` / `OrderType`.
 ```
 
-Language rules (identical to `a_sk_l_review_pr`): first line is `📍 \`path:line\``; Problem in one concrete sentence (no "there might be…"); Fix in one concrete sentence; no filler openers ("I noticed", "it appears"); backtick every code/file/identifier reference; **one comment = one fix**. For a whole-file `PROJECT_SCOPED_ARTIFACT`, anchor at the file's first added line (`:1`) and make the Fix "remove from the framework / relocate to the source project; keep only the generic rules it produced."
+Language rules (identical to `a_sk_review_pr`): first line is `📍 \`path:line\``; Problem in one concrete sentence (no "there might be…"); Fix in one concrete sentence; no filler openers ("I noticed", "it appears"); backtick every code/file/identifier reference; **one comment = one fix**. For a whole-file `PROJECT_SCOPED_ARTIFACT`, anchor at the file's first added line (`:1`) and make the Fix "remove from the framework / relocate to the source project; keep only the generic rules it produced."
 
 **Build the draft**, then show a lean table, only real findings, no padding:
 
@@ -187,7 +187,7 @@ Verdict: {APPROVED / NEEDS WORK / BLOCKED}   ({B} blocking, {W} warn)
 
 Map to action: a `PR-INTRODUCED` or `PR-EXPOSED` finding at `BLOCKING`/`WARN` is **Post**; everything else is **Internal**, `INFO` (adjudicated-legitimate), `PRE-EXISTING` (real noise but the PR didn't add it → a Notes line, framed as "also worth cleaning up," never as this PR's fault), and dups of existing comments. If there are zero postable findings, show only the verdict (`APPROVED`), do not pad with "all good" rows.
 
-**Post only after the user picks** (`yes` / `post 1,2` / `skip 3` / `none`). Post as a **single batch review** so GitHub sends one notification, mirroring `a_sk_l_review_pr` Step 12:
+**Post only after the user picks** (`yes` / `post 1,2` / `skip 3` / `none`). Post as a **single batch review** so GitHub sends one notification, mirroring `a_sk_review_pr` Step 12:
 
 ```bash
 head_sha=$(gh pr view "$PR" --repo mahsanamin/agentic-repos --json headRefOid -q .headRefOid)
@@ -202,7 +202,7 @@ Then remove the review worktree (non-interactive `--force`, mirroring `ar-global
 
 ## What this gate does NOT do
 
-- It does not post without showing the draft and getting your pick first, same contract as `a_sk_l_review_pr`.
+- It does not post without showing the draft and getting your pick first, same contract as `a_sk_review_pr`.
 - It does not modify tracked files; it reviews and comments. (If you ask, it can apply the BLOCKING fixes to a branch separately.)
-- It does not replace `ar-optimizer` (full-project token/redundancy audit) or `a_sk_l_review_pr` (target-project code review). It is narrowly the *no-project-noise* review for framework PRs.
+- It does not replace `ar-optimizer` (full-project token/redundancy audit) or `a_sk_review_pr` (target-project code review). It is narrowly the *no-project-noise* review for framework PRs.
 - It does not run in target projects, project-specific content is expected there.

@@ -178,12 +178,13 @@ This mirrors correct manual handling: update-then-dedupe, not delete. A duplicat
 # {ProjectName}_AgenticRepos dir. PROJECT_NAME comes from the code repo's
 # config_hints (resolved in Step 1).
 #
-# If PROJECT_NAME is already pascal-cased (e.g. "Example_Project") the awk pass is a
-# no-op; if it's snake/kebab/lower-case, awk pascal-cases it.
-case "$PROJECT_NAME" in
-  *_[A-Z]*|[A-Z]*) pascal_name="$PROJECT_NAME" ;;
-  *) pascal_name=$(echo "$PROJECT_NAME" | awk -F'[_-]' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS='_') ;;
-esac
+# Normalise PROJECT_NAME into a directory-safe token: treat whitespace as a word
+# separator alongside `_` and `-`, capitalise each word, join with `_`. A name that
+# is already pascal/snake-cased passes through unchanged ("Example_Project" stays
+# put), "user-service" becomes "User_Service", and a name containing a space
+# ("My Service") becomes "My_Service" instead of leaking the space into a
+# directory name. `ar-add-improvement` derives this same token, keep the two in sync.
+pascal_name=$(echo "$PROJECT_NAME" | awk -F'[_[:space:]-]+' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS='_')
 
 fw_dir="$(dirname "$TASKS_WORKSPACE")/${pascal_name}_AgenticRepos"
 improvements_dir="$fw_dir/improvements"

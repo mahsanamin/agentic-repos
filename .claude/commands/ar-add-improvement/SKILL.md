@@ -168,7 +168,10 @@ elif [ -f "$SOURCE_PATH/.claude/skill.config" ]; then
   # root, and the _AgenticRepos dir is that root's sibling)
   tasks_root=$(jq -r '.paths.tasks_root // ""' "$SOURCE_PATH/.claude/skill.config")
   project_name=$(jq -r '.project.name // .project_name' "$SOURCE_PATH/.claude/config_hints.json")
-  pascal_name=$(echo "$project_name" | awk -F'[_-]' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS='_')
+  # Same normalisation ar-record-improvement Step 7 uses: whitespace is a word
+  # separator alongside `_` and `-`, so a project.name with a space resolves to the
+  # same directory both skills write to. Keep the two in sync.
+  pascal_name=$(echo "$project_name" | awk -F'[_[:space:]-]+' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS='_')
   fw_dir="$(dirname "$(dirname "$tasks_root")")/${pascal_name}_AgenticRepos"
 else
   echo "ERROR: Could not locate an _AgenticRepos improvements dir from $SOURCE_PATH"; exit 1
@@ -636,7 +639,7 @@ Run validation checks:
   bash scripts/ar-lint/project-noise-lint.sh --changed  # PROJECT_NOISE / PROJECT_SCOPED_ARTIFACT candidates
   ```
   Adjudicate any `project-noise-lint` candidates (an `a_sag_code_reviewer` pass handles the domain-shaped noise regex can't see). **Any confirmed BLOCKING finding STOPS the bump** until fixed. (Touched nothing under `rules/`/`skills/`/`agents/`/`templates/`/`docs/`/`setup.md`? Passes trivially.)
-- **After the PR is opened, run the full review: `/ar-self-reviewer <PR>`**, it takes the framework PR as input and posts findings in `a_sk_l_review_pr` comment style for the human to approve. (The lints above are the pre-commit fast path; the gate is the full PR review.)
+- **After the PR is opened, run the full review: `/ar-self-reviewer <PR>`**, it takes the framework PR as input and posts findings in `a_sk_review_pr` comment style for the human to approve. (The lints above are the pre-commit fast path; the gate is the full PR review.)
 - If any `skills/*` or `agents/*` file was modified: run/refresh that skill's evals via `skill-creator` and require a passing baseline before the version bump, this catches behavioral regressions from edits/trims. **`skill-creator` is a required prerequisite**, if missing, STOP and have the user install it before bumping.
 
 **Check 1: Version numbers match**
