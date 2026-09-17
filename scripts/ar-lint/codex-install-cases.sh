@@ -112,8 +112,13 @@ fi
 echo "== idempotency =="
 cp -r "$FAKE_CODEX" "$SANDBOX/codex-before"
 runinst; want $? "second run exits 0"
-diff -r "$SANDBOX/codex-before" "$FAKE_CODEX" >/dev/null 2>&1
+# The state snapshot records an install timestamp, so it is EXPECTED to differ.
+# Diffing it made this case pass or fail on whether the two runs happened to land
+# in the same second, which is a coin toss, not a result.
+diff -r -x '.agentic-repos-state.json' "$SANDBOX/codex-before" "$FAKE_CODEX" >/dev/null 2>&1
 want $? "a second run changes nothing (no duplicated AGENTS.md block)"
+[ "$(jq -r .framework_path "$FAKE_CODEX/.agentic-repos-state.json")" = "$FW" ]
+want $? "the state snapshot still records the right framework path after a re-run"
 [ "$(grep -c 'Agentic Repos (managed by install-codex.sh)' "$FAKE_CODEX/AGENTS.md")" -eq 1 ]
 want $? "exactly one managed block marker in ~/.codex/AGENTS.md"
 

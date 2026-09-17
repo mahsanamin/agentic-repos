@@ -176,7 +176,7 @@ To make and maintain agent-ready repos, the framework content (`setup.md`, `rule
 |---|---|---|
 | `git-guard-cases.sh` | 47 | every refusal the guard makes, and every command it must NOT block |
 | `install-cases.sh` | 23 | `install.sh` against a disposable HOME, including that a second run is byte-identical |
-| `codex-install-cases.sh` | 33 | `install-codex.sh`, including the registered hook event and matcher |
+| `codex-install-cases.sh` | 34 | `install-codex.sh`, including the registered hook event and matcher |
 
 `./install-codex.sh --check-only` syntax-checks the shipped scripts and runs all three. It installs nothing. Run it before shipping any change to a script, an installer, a hook or either settings file; a focused change can run just the suite it touches, as long as the report says what was not exercised.
 

@@ -274,7 +274,7 @@ The repo's `.claude/settings.json` may have been tightened, or was not written b
 They stop at `review.max_agent_rounds` (default 3). If the fixer printed `ROUND CAP`, that is the budget, not a failure: read the reviewer's summary and decide whether the PR continues, splits, or changes approach. Raising the number in `config_hints.json` is a deliberate choice, not a workaround.
 
 **I changed a script, an installer or the guard. How do I check it?**
-`./install-codex.sh --check-only` syntax-checks the shipped scripts and runs every contract suite in `scripts/ar-lint/`: `git-guard-cases.sh` (47 cases covering every refusal and every command the guard must not block), `install-cases.sh` (23 cases for `install.sh` against a disposable HOME) and `codex-install-cases.sh` (33 cases for `install-codex.sh`). It installs nothing. Run a single suite directly with `bash scripts/ar-lint/git-guard-cases.sh`.
+`./install-codex.sh --check-only` syntax-checks the shipped scripts and runs every contract suite in `scripts/ar-lint/`: `git-guard-cases.sh` (47 cases covering every refusal and every command the guard must not block), `install-cases.sh` (23 cases for `install.sh` against a disposable HOME) and `codex-install-cases.sh` (34 cases for `install-codex.sh`). It installs nothing. Run a single suite directly with `bash scripts/ar-lint/git-guard-cases.sh`.
 
 **How do I update to a newer framework version?**
 `git pull` in the framework repo, then re-run `./install.sh` (and `./install-codex.sh` if you use Codex). Because the global layer is symlinks, the pull alone updates the skills; re-running the installers picks up any new skills, scripts, or hook changes.
