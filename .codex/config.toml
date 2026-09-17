@@ -1,0 +1,8 @@
+# Agentic Repos: edit inside the repo without asking, prompt only to leave the sandbox.
+# The protected-branch policy is enforced by .codex/hooks.json, not by prompts.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4

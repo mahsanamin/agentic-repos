@@ -54,7 +54,9 @@ Follow the rule at `<standards_location>/learning-routing.md` (resolve `standard
    Before resuming any new code work, prove the previous session left the repo in a working state. Skipping this step is how regressions get buried under new commits.
 
    a. **Boot the project** using the project's documented dev/start command. Look in this order: `AGENTS.md` → project `README.md` → the build/script manifest. If the boot command isn't documented anywhere, ask the user once and note it in `execution-summary.md` for future resumes.
-   b. **Run the touched-path tests**, execute the test files listed in `execution_plan.md` → "Files to change", plus any test referenced in `acceptance_criteria.json` → `verification`. Use the project's test command (`test_command`/`verify.full_command` from `config_hints.json`, else the command documented in the repo), force-rerun if the test runner caches results.
+   b. **Run the touched-path tests**, execute the test files listed in `execution_plan.md` → "Files to change", plus any test referenced in `acceptance_criteria.json` → `verification`. Use `verify.targeted_command` from `config_hints.json` over those paths, else the project's `test_command`, else the command documented in the repo. Force-rerun if the test runner caches results.
+
+      **Not `verify.full_command`.** This step exists to prove the *previous session* left the touched paths working, and it runs before any new code is written, so a full suite here reports mostly on code this task never went near, at full price, on the one step whose whole purpose is to be a fast smoke check. The task's one mandatory full gate is the final verification gate in `ar-taskflow` Phase 4, and resuming does not move it. Classify the diff per the **Change Scope** section of `ar-taskflow` if the previous session's changes are wider than the plan's file list.
    c. **Re-check the JSON gate** (only if `acceptance_criteria.json` exists): for every criterion currently marked `passes: true`, re-run its `verification` step. If a previously-passing criterion now fails, the prior session left a regression, that becomes the first thing to fix, not new feature work.
 
    **If boot fails or any previously-green criterion fails:**
@@ -71,14 +73,47 @@ Follow the rule at `<standards_location>/learning-routing.md` (resolve `standard
 
    **If everything is green:** state it explicitly ("Baseline green: N/N criteria still pass, smoke tests pass"), then proceed to the next failing criterion.
 
-   **Manual Override:** If user says "skip smoke test", note it in `execution-summary.md` → "Last Action: resumed without smoke test (user override)" so the next resume knows the baseline is unverified.
+   **Manual Override:** If user says "skip smoke test", **hold the note in memory, do not write it yet.** Step 6 promises that a declined resume leaves no trace in `execution-summary.md`, and the user can skip the smoke test and then answer "no" at Step 6, by which point a note written here already claims a resume that never happened, which the next resume reads as a real unverified baseline. Write it in Step 7, once the resume is confirmed: `Last Action: resumed without smoke test (user override)` so the next resume knows the baseline is unverified.
 
 5. **Check git branch status (worktree-aware):**
    ```bash
+   # Resolve the default branch, never assume "main", same idiom as ar-taskflow and
+   # ar-taskflow-planner. A master-based repo would otherwise pass this check and resume
+   # commit-producing work in the default worktree.
+   default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+   [ -z "$default_branch" ] && default_branch=$(git remote show origin 2>/dev/null | sed -n 's/^[[:space:]]*HEAD branch: //p')
+   if [ -z "$default_branch" ]; then
+     candidate=$(jq -r '.default_branch // empty' .claude/config_hints.json)
+     [ -n "$candidate" ] && git show-ref --verify --quiet "refs/remotes/origin/$candidate" && default_branch="$candidate"
+   fi
+   if [ -z "$default_branch" ]; then
+     # Last local resort, before stopping the run. `git remote show origin` is a NETWORK call and
+     # origin/HEAD is absent in any clone whose remote was added by hand or that CI fetched, so an
+     # offline run with neither would reach the stop below through no fault of the project.
+     # Removing the wrong-base bug should not turn that into a hard stop.
+     # A local remote-tracking ref is not a guess: it exists because the remote has that branch.
+     # Ambiguity still stops, choosing between main and master IS the wrong-base bug.
+     # GUARDED, like every step above it: an unguarded run would overwrite an already-correct
+     # answer, so a `develop`-based repo that merely still carries a stale `origin/main` ref would
+     # be silently retargeted at `main`, the exact bug this chain exists to remove.
+     has_main=$(git show-ref --verify --quiet refs/remotes/origin/main && echo 1)
+     has_master=$(git show-ref --verify --quiet refs/remotes/origin/master && echo 1)
+     if [ "$has_main" = 1 ] && [ -z "$has_master" ]; then
+       default_branch=main
+       echo "Default branch resolved to 'main' from local refs/remotes/origin/main: origin/HEAD is unset and the remote was unreachable, and no origin/master exists here, so this is unambiguous." >&2
+     elif [ "$has_master" = 1 ] && [ -z "$has_main" ]; then
+       default_branch=master
+       echo "Default branch resolved to 'master' from local refs/remotes/origin/master: origin/HEAD is unset and the remote was unreachable, and no origin/main exists here, so this is unambiguous." >&2
+     fi
+   fi
+   if [ -z "$default_branch" ]; then
+     echo "Cannot determine the remote default branch (origin/main and origin/master are both present or both absent locally). Set it with: git remote set-head origin -a, or set .default_branch in .claude/config_hints.json when offline." >&2
+     exit 1
+   fi
    git branch --show-current
    ```
    - If on feature branch matching task → Good, continue
-   - If on main → May need to create/checkout branch
+   - If on `$default_branch` → do NOT create a branch in the main checkout (commit-producing work always uses a dedicated worktree, see `task-flow-startup.md`). Locate the task's existing worktree (`git worktree list`, or the **Worktree** fields in `execution-summary.md` below), or create one with the `a_g_worktree_*` helpers and resume there.
 
    **Cross-check against `execution-summary.md`.** If it records the worktree fields written by ar-taskflow's Pre-Product Worktree Reconciliation, **Worktree**, **Local Branch**, **Remote Branch**, **Reconciliation Result**, reconcile them against the current HEAD before doing anything:
 
@@ -109,7 +144,13 @@ Follow the rule at `<standards_location>/learning-routing.md` (resolve `standard
    Ready to continue? (yes/no)
    ```
 
-7. **📤 Push docs on resume:** After user confirms, push any uncommitted changes in `coding_tasks_root`. Follow the full **Push-Docs Procedure** from the ar-taskflow skill, including pull-rebase and intelligent conflict resolution for `TasksSummary/*.md` and other shared files.
+   Wait for the answer before writing anything to task history. **If "no":** stop here, do **not** write the held smoke-test override note and do **not** push docs. A declined resume must leave no trace in `execution-summary.md`, or the history records a session that never continued.
+
+7. **On "yes", record the resume, then push docs:**
+
+   **Write the held smoke-test override note from Step 4b now, if there was one** (only here, after the user confirmed): set `execution-summary.md` → `Last Action: resumed without smoke test (user override)`.
+
+   **📤 Push docs on resume:** push any uncommitted changes in `coding_tasks_root` (this includes the note just written). Follow the full **Push-Docs Procedure** from the ar-taskflow skill, including pull-rebase and intelligent conflict resolution for `TasksSummary/*.md` and other shared files.
    ```bash
    coding_tasks_root=$(dirname "$(jq -r '.paths.tasks_root' .claude/skill.config)")
    # Use context message: "resume {task_name}"

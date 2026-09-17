@@ -56,6 +56,7 @@ Follow the rule at `<standards_location>/learning-routing.md` (resolve `standard
    Phase: {from execution-summary}
    Branch: {current branch}
    Last Action: {from execution-summary}
+   Sessions: {session IDs from execution-summary, newest first; omit the line if the field is empty}
    Next: {from execution-summary or infer from phase using ar-taskflow knowledge}
 
    Ready to continue. What would you like me to do?

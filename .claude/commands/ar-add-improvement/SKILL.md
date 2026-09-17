@@ -636,7 +636,7 @@ Run validation checks:
   bash scripts/ar-lint/project-noise-lint.sh --changed  # PROJECT_NOISE / PROJECT_SCOPED_ARTIFACT candidates
   ```
   Adjudicate any `project-noise-lint` candidates (an `a_sag_code_reviewer` pass handles the domain-shaped noise regex can't see). **Any confirmed BLOCKING finding STOPS the bump** until fixed. (Touched nothing under `rules/`/`skills/`/`agents/`/`templates/`/`docs/`/`setup.md`? Passes trivially.)
-- **After the PR is opened, run the full review: `/ar-self-reviewer <PR>`**, it takes the framework PR as input and posts findings in `a_sk_l_review_pr` comment style for the human to approve. (The lints above are the pre-commit fast path; the gate is the full PR review.)
+- **After the PR is opened, run the full review: `/ar-self-reviewer <PR>`**, it takes the framework PR as input and posts findings in `a_sk_review_pr` comment style for the human to approve. (The lints above are the pre-commit fast path; the gate is the full PR review.)
 - If any `skills/*` or `agents/*` file was modified: run/refresh that skill's evals via `skill-creator` and require a passing baseline before the version bump, this catches behavioral regressions from edits/trims. **`skill-creator` is a required prerequisite**, if missing, STOP and have the user install it before bumping.
 
 **Check 1: Version numbers match**

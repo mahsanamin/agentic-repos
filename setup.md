@@ -182,7 +182,7 @@ fi
 refs=$(grep -rhoE '[a-z0-9-]+\.md' "$std" AGENTS.md 2>/dev/null | grep -vE '^(README|CLAUDE|AGENTS)\.md$' | sort -u)
 for r in $refs; do
   case "$r" in
-    *-conventions.md|*-patterns.md|*-standards.md|*-policy.md|project-structure.md|error-handling.md|critical-thinking.md|code-review.md|task.md)
+    *-conventions.md|*-patterns.md|*-standards.md|*-policy.md|project-structure.md|error-handling.md|critical-thinking.md|code-review.md|task.md|lean-docs.md|lean-doc-comments.md|lean-inline-comments.md|delegation-and-cost.md|diagram-output-medium.md|seed-vs-migration-jobs.md|task-flow-startup.md)
       [ -f "$std/$r" ] || { echo "dangling rule reference: $r (not in $std/)"; violations=$((violations+1)); } ;;
   esac
 done
@@ -399,9 +399,17 @@ Per-repo paths and state that skills read (e.g. links to a paired tasks/docs wor
 
 ## Step: Write Autonomous Settings
 
-Write the target's `.claude/settings.json` from `{framework_path}/templates/settings.template.json`. This is an **autonomous permission posture**: `defaultMode: acceptEdits` plus an allow-list covering the git/build/PR/skill operations the flow performs, and NO "ask" list, so `ar-taskflow` and friends run end to end without stopping for permission prompts. Only genuinely destructive commands are denied.
+Write the target's `.claude/settings.json` from `{framework_path}/templates/settings.template.json`. This is an **autonomous permission posture**, built on one rule for where an entry goes:
 
-**Permissions only; no duplicated global hooks.** The SessionStart workflow hook and the default-branch / force-push guard are wired GLOBALLY by `install.sh` into `~/.claude/settings.json`. They already apply to this repo and must NOT be duplicated here. If the template ever carried a `hooks` block, strip it before writing. (The only per-project hook this framework writes is the opt-in global-layer precheck below, which is not one of these global hooks and is added by its own step.)
+- **`deny`** holds only what must never run, whatever the answer would be.
+- **`ask`** holds the operator decisions where a human's answer in the moment changes the outcome: merging or closing a PR, force-deleting a branch, dropping a stash, removing a container volume. None of these sits on the normal flow, so `ar-taskflow` and friends still run end to end without stopping.
+- **`allow`** holds everything else. It is **stack-neutral on purpose and is never pruned per project**, so a repo that later gains a second language does not start prompting.
+
+`defaultMode` is `acceptEdits`, so file edits are auto-accepted.
+
+**Safety is not in this file.** A permission entry is a prefix match, so it cannot stop `bash -c` or a rephrased command. Default-branch commits, force pushes, shared-branch history rewrites, whole-tree discards, `git reset --hard` and `git clean` are refused by the PreToolUse guard the global layer installs. That is why `git` and `gh` can be allowed wholesale here.
+
+**Permissions only; no duplicated global hooks.** The SessionStart workflow hook and the git safety guard are wired GLOBALLY by `install.sh` into `~/.claude/settings.json`. They already apply to this repo and must NOT be duplicated here. If the template ever carried a `hooks` block, strip it before writing. (The only per-project hook this framework writes is the opt-in global-layer precheck below, which is not one of these global hooks and is added by its own step.)
 
 **Merge, do not clobber.** If the target already has `.claude/settings.json`, union its permissions with the template rather than overwriting the team's existing entries:
 
@@ -416,6 +424,7 @@ if [ -f "$DEST" ]; then
     $cur
     | .permissions.defaultMode = ($cur.permissions.defaultMode // $tpl.permissions.defaultMode)
     | .permissions.allow = (((($cur.permissions.allow // []) + ($tpl.permissions.allow // [])) | unique))
+    | .permissions.ask   = (((($cur.permissions.ask   // []) + ($tpl.permissions.ask   // [])) | unique))
     | .permissions.deny  = (((($cur.permissions.deny  // []) + ($tpl.permissions.deny  // [])) | unique))
     | del(.hooks)
   ' "$TPL" "$DEST" > "$tmp" && mv "$tmp" "$DEST"
@@ -425,7 +434,28 @@ fi
 echo "Wrote autonomous permissions to $DEST (no hooks; global layer owns those)."
 ```
 
-A project that wants non-autonomous behavior can add an `"ask"` array to this file afterward.
+A project that wants to stop on more operations adds them to the `ask` array afterward; the merge above preserves anything already there.
+
+## Step: Add Codex Support (Optional)
+
+Ask whether anyone on this repo uses Codex. If nobody does, skip this step and write nothing.
+
+If they do, add the repo's Codex layer:
+
+```bash
+"{framework_path}/install-codex.sh" --target-only .
+```
+
+That writes two files and nothing else:
+
+- `.codex/config.toml`, the posture (`approval_policy = "on-request"`, `sandbox_mode = "workspace-write"`). If the file already sets either key, the project has chosen its posture and it is left alone.
+- `.codex/hooks.json`, a `PreToolUse` hook on `^Bash$` that runs **the same guard script Claude Code runs**. One predicate, both harnesses. Any hook the project already had is preserved.
+
+Both files are committed, so a teammate who clones the repo gets them.
+
+**Tell the user the trust step, and do not describe the repo as protected until they confirm it.** Codex requires a project hook to be reviewed and trusted once: open `/hooks` in Codex, find the Agentic Repos protected-branch hook, and trust it. Until then the hook does not run and does not announce itself.
+
+The `ar-*` skills themselves are NOT copied into the repo for Codex, the same as for Claude Code. They come from the machine-global layer, which a Codex user installs with `{framework_path}/install-codex.sh`. See `docs/CODEX.md`.
 
 ## Step: Write Global-Layer Precheck Hook (Optional, opt-in)
 

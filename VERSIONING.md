@@ -43,13 +43,13 @@ Significant changes that affect how the framework works:
 ## Where Version Is Tracked
 
 - **`config_hints.json`**, Canonical source of truth (`framework_version` field)
-- **`CLAUDE.md`**, Human-readable (`Version: v{X.Y.Z}` in header)
+- **`AGENTS.md`**, Human-readable (`Version: v{X.Y.Z}` in header); `CLAUDE.md` is a thin import that carries the same line
 - **`CHANGELOG.md`**, Detailed per-version file changes (used for incremental updates)
 - **`config_hints.json` in target projects**, Tracks which framework version was last installed (used for update detection)
 
 ## How to Bump Version
 
 1. Update `framework_version` in `config_hints.json` (canonical source)
-2. Update the `Version:` line in `CLAUDE.md`
+2. Update the `Version:` line in `AGENTS.md` and in `CLAUDE.md`
 3. Add entry to `CHANGELOG.md` with detailed file changes
 4. Commit to framework repo

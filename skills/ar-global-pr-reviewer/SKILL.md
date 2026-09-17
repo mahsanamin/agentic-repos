@@ -70,6 +70,15 @@ PR_TITLE=$(echo "$PR_META" | jq -r '.title')
 PR_STATE=$(echo "$PR_META" | jq -r '.state')
 HEAD_BRANCH=$(echo "$PR_META" | jq -r '.headRefName')
 BASE_BRANCH=$(echo "$PR_META" | jq -r '.baseRefName')
+# Resolve the PR head via an IMMUTABLE reference, not origin/$HEAD_BRANCH. The head
+# branch ref is mutable (it can move under us mid-review) and, for fork PRs, may not
+# exist on origin at all, either way origin/$HEAD_BRANCH risks silently reviewing a
+# stale or wrong commit. headRefOid is the exact head commit; refs/pull/$PR_NUMBER/head
+# is the PR's own head ref (works for forks too). That remote ref is NOT immutable,
+# GitHub moves it whenever the author pushes, so it is pinned LOCALLY after the fetch
+# below and every fetch is checked against HEAD_SHA. Use these everywhere below.
+HEAD_SHA=$(echo "$PR_META" | jq -r '.headRefOid // empty')
+PR_HEAD_REF="refs/pr/$PR_NUMBER/head"   # local ref, pinned to the PR head as of the fetch
 PR_AUTHOR=$(echo "$PR_META" | jq -r '.author.login')
 CHANGED_FILES=$(echo "$PR_META" | jq -r '.changedFiles')
 ADDITIONS=$(echo "$PR_META" | jq -r '.additions')
@@ -137,18 +146,50 @@ else
     git -C "$REPO_DIR" fetch origin --quiet
 fi
 
-# Ensure we have both base and head reachable (for the diff)
+# Ensure base is reachable (for the diff)
 if ! git -C "$REPO_DIR" rev-parse "origin/$BASE_BRANCH" >/dev/null 2>&1; then
     git -C "$REPO_DIR" fetch origin "$BASE_BRANCH" --quiet
 fi
-if ! git -C "$REPO_DIR" rev-parse "origin/$HEAD_BRANCH" >/dev/null 2>&1; then
-    git -C "$REPO_DIR" fetch origin "$HEAD_BRANCH" --quiet
-fi
+# Fetch the PR head via its pull ref into a local ref (not origin/$HEAD_BRANCH).
+git -C "$REPO_DIR" fetch origin "refs/pull/$PR_NUMBER/head:$PR_HEAD_REF" --force --quiet
+
+# The remote pull ref can advance between reading $PR_META (where HEAD_SHA came from) and
+# this fetch. If it did, the local ref and HEAD_SHA now name two different commits, and the
+# rest of the run would mix them: the diff from one, the inline comment anchors from the
+# other. Abort rather than review a blend of two commits.
+assert_pinned() {
+    [ -z "$HEAD_SHA" ] && return 0   # nothing recorded yet; the fetch defines the pin
+    fetched=$(git -C "$REPO_DIR" rev-parse "$PR_HEAD_REF")
+    if [ "$fetched" != "$HEAD_SHA" ]; then
+        echo "❌ PR #$PR_NUMBER moved during the run: metadata says $HEAD_SHA, the pull ref now has $fetched." >&2
+        echo "    Restart the review with fresh metadata rather than mixing two commits." >&2
+        return 1
+    fi
+}
+assert_pinned || return 1
+# Fall back to the fetched ref's tip if headRefOid was unavailable from the API.
+[ -z "$HEAD_SHA" ] && HEAD_SHA=$(git -C "$REPO_DIR" rev-parse "$PR_HEAD_REF")
 
 # If merge-base resolution fails (likely shallow clone problem), deepen
-if ! git -C "$REPO_DIR" merge-base "origin/$BASE_BRANCH" "origin/$HEAD_BRANCH" >/dev/null 2>&1; then
+if ! git -C "$REPO_DIR" merge-base "origin/$BASE_BRANCH" "$HEAD_SHA" >/dev/null 2>&1; then
     echo "→ Deepening clone to find merge-base..."
-    git -C "$REPO_DIR" fetch --deepen=500 origin "$BASE_BRANCH" "$HEAD_BRANCH" --quiet
+    git -C "$REPO_DIR" fetch --deepen=500 origin "$BASE_BRANCH" --quiet
+    git -C "$REPO_DIR" fetch --deepen=500 origin "refs/pull/$PR_NUMBER/head:$PR_HEAD_REF" --force --quiet
+    # Second fetch, second opportunity for the ref to have moved.
+    assert_pinned || return 1
+    # Re-test the thing we deepened FOR. Checking only whether the head moved leaves the
+    # unresolved-merge-base case falling straight through, a branch older than the
+    # 500-commit deepen, or a force-pushed base that dropped the fork point. Every later
+    # `git diff BASE...HEAD` then resolves against nothing, review.diff comes out EMPTY,
+    # and the reviewer reports "no changes" on a PR that changed plenty. A silent false
+    # pass is worse than a loud failure: the review gets recorded as done.
+    if ! git -C "$REPO_DIR" merge-base "origin/$BASE_BRANCH" "$HEAD_SHA" >/dev/null 2>&1; then
+        echo "❌ No merge-base between origin/$BASE_BRANCH and $HEAD_SHA even after deepening to 500 commits." >&2
+        echo "    The fork point is outside the deepened history, or the base branch was force-pushed and dropped it." >&2
+        echo "    Re-run with a full clone (remove ~/ar-global-pr-reviewer/repos/<owner>/<repo> and let it re-clone), or deepen further." >&2
+        echo "    Aborting before any diff: an unresolved merge-base yields an empty diff, which reads as 'no changes'." >&2
+        return 1
+    fi
 fi
 ```
 
@@ -186,7 +227,8 @@ mkdir -p "$(dirname "$WORKTREE_DIR")"
 LOCAL_REVIEW_BRANCH="review-pr-$PR_NUMBER"
 # If already exists from prior session, reuse
 if [ ! -d "$WORKTREE_DIR" ]; then
-    git -C "$REPO_DIR" worktree add -b "$LOCAL_REVIEW_BRANCH" "$WORKTREE_DIR" "origin/$HEAD_BRANCH"
+    # Check out the pinned head commit, not the mutable origin/$HEAD_BRANCH.
+    git -C "$REPO_DIR" worktree add -b "$LOCAL_REVIEW_BRANCH" "$WORKTREE_DIR" "$HEAD_SHA"
 fi
 cd "$WORKTREE_DIR"
 ```
@@ -456,7 +498,7 @@ if [ "$SETUP_SUCCESS" = true ]; then
     {
         echo "=== Test run: $(date) ==="
         # Identify changed test files
-        CHANGED_TEST_FILES=$(git diff --name-only "origin/$BASE_BRANCH...origin/$HEAD_BRANCH" \
+        CHANGED_TEST_FILES=$(git diff --name-only "origin/$BASE_BRANCH...$HEAD_SHA" \
             | grep -iE '(test|spec)\.(java|kt|js|ts|py)$|/(test|tests|__tests__)/' | head -50)
 
         case "$SETUP_TYPE" in
@@ -545,6 +587,33 @@ gh api "repos/$OWNER/$REPO/pulls/$PR_NUMBER/comments" \
 gh api "repos/$OWNER/$REPO/issues/$PR_NUMBER/comments" \
     --jq '[.[] | {id: .id, body: .body, user: .user.login, created_at: .created_at}]' \
     > "$REVIEW_DIR/existing-comments-issue.json"
+
+# Round budget. The rule itself is defined once, in the installed code-review rule
+# ("Round Budget for Agent-to-Agent Exchanges"): how many rounds, what a round is,
+# what a class is, and why neither green CI nor the two agents agreeing extends it.
+# This block only counts. Rounds come from the `<!-- ar-review round=N -->` marker
+# Phase 9 puts in every review body, with non-approval reviews by this login as the
+# fallback for reviews that predate the marker.
+ME=$(gh api user -q .login)
+gh api "repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
+  | jq -s --arg me "$ME" --arg head "$HEAD_SHA" 'add // []
+      | [.[] | select(.user.login == $me)] as $all
+      | [$all[] | select((.body // "") | test("<!-- ar-review round=[0-9]+"))] as $marked
+      | (if ($marked | length) > 0 then $marked
+         else [$all[] | select(.state != "APPROVED" and .state != "DISMISSED")] end) as $mine
+      | ($mine | sort_by(.submitted_at) | last) as $last
+      | {review_round: ($mine | length + 1),
+         last_was_cap: (($last | .body // "") | test("<!-- ar-review round=[0-9]+ cap -->")),
+         head_moved_since: (($last | .commit_id // "") != $head)}' \
+  > "$REVIEW_DIR/round.json"
+MAX_ROUNDS=$(jq -r '.review.max_agent_rounds // 3' "$REPO_DIR/.claude/config_hints.json" 2>/dev/null)
+case "$MAX_ROUNDS" in ''|*[!0-9]*) MAX_ROUNDS=3 ;; esac
+REVIEW_ROUND=$(jq -r .review_round "$REVIEW_DIR/round.json")
+if [ "$(jq -r .last_was_cap "$REVIEW_DIR/round.json")" = true ] \
+   && [ "$(jq -r .head_moved_since "$REVIEW_DIR/round.json")" = false ]; then
+    echo "Round cap already posted for this head; nothing new to review. Stopping."
+    return 0
+fi
 ```
 
 ---
@@ -633,8 +702,18 @@ DEDUP + CROSS-REFERENCE, for each potential comment, before drafting it:
   2. If a substantively similar comment is already posted (same file, same area,
      same root cause), DO NOT add a duplicate. Note in your private log
      "skipped: dup of #COMMENT_ID".
-  3. If the existing comment partially addresses the issue but missed something,
-     post a follow-up, but reference the existing comment.
+  3. If an existing comment is the same CLASS as your finding (same shape over the
+     same list, value or heuristic, in any file), do NOT add another instance.
+     A class is a shape across files, not a file. Two or more findings of one class
+     become ONE Approach comment that names the class and the alternative; if the PR
+     already holds two findings of that class, the Approach comment says so and asks
+     for the approach to change. A stream of correct instances is what spends the
+     round budget.
+  3b. ROUND BUDGET: this is review round $REVIEW_ROUND of $MAX_ROUNDS from this account.
+     When $REVIEW_ROUND is above $MAX_ROUNDS, produce NO findings: the draft holds a
+     single review-body summary, the recurring class, why instances do not close it,
+     the alternative, and that a human decides whether the PR continues, splits or
+     changes approach, and Phase 9 posts it as the review body with no inline comments.
   4. CROSS-REFERENCE automated reviewers' OUTPUT (not just presence):
      - Filter existing comments by bot users (coderabbit-ai, github-actions[bot],
        sonarqubecloud, etc.).
@@ -749,37 +828,37 @@ clarification dressed up as critique.
 
 Wait for the user's response. If they edit and re-show, show the diff of what changed.
 
+**Unattended (`review.auto_post: true` in the target's `.claude/config_hints.json`, or the caller passed `post=auto`):** do not wait. Post the checked comments whose type is Bug/Error, Security, Missing or Approach, plus the round-cap summary when Phase 7 produced one; drop Questions and Trade-offs. The Approach comment and the cap summary are what end a reviewer loop, so they must be postable with nobody at the keyboard. When `review.auto_post` is absent or false, the manual default above holds: wait for "post" or "cancel".
+
 ---
 
-## Phase 9: Post inline comments
+## Phase 9: Post the review
 
-For each checked comment in `review-draft.md`, post via `gh api`. GitHub's inline-comment API needs:
-
-- `body`, the comment text (markdown)
-- `commit_id`, head SHA of the PR
-- `path`, file path relative to repo root
-- `line` (or `position`), the line in the file
+Post ONE review carrying every checked comment, not one API call per comment. Each call to `pulls/{n}/comments` creates its own review object on GitHub, so five individually posted comments read as five rounds to the round-budget count on the next run. The review body carries the `<!-- ar-review round=N -->` marker that count reads.
 
 ```bash
-HEAD_SHA=$(echo "$PR_META" | jq -r '.headRefOid // empty')
-[ -z "$HEAD_SHA" ] && HEAD_SHA=$(git -C "$REPO_DIR" rev-parse "origin/$HEAD_BRANCH")
+# HEAD_SHA is the PR head pinned in Phase 0/1 from headRefOid. Re-derive defensively if
+# unset, from the locally pinned pull ref, never mutable origin/$HEAD_BRANCH.
+[ -z "$HEAD_SHA" ] && HEAD_SHA=$(echo "$PR_META" | jq -r '.headRefOid // empty')
+[ -z "$HEAD_SHA" ] && HEAD_SHA=$(git -C "$REPO_DIR" rev-parse "$PR_HEAD_REF")
 
-# For each checked comment in review-draft.md:
-# Reject empty $LINE upstream, gh would happily POST `line=` and the API
-# would return 422 with no usable error. Skip the comment and log loudly
-# instead so the draft can be corrected.
-if [ -z "$LINE" ]; then
-    echo "⚠️  Empty line number for $FILE_PATH, skipping comment. Fix the draft and re-run." >&2
-    continue
-fi
-gh api \
-    --method POST \
-    "repos/$OWNER/$REPO/pulls/$PR_NUMBER/comments" \
-    -f body="$COMMENT_BODY" \
-    -f commit_id="$HEAD_SHA" \
-    -f path="$FILE_PATH" \
-    -F line="$LINE" \
-    -f side='RIGHT'
+# Build ONE review payload from the checked comments. A comment with an empty line number
+# is dropped with a loud note, gh would POST `line=` and the API would 422 the whole
+# review. The body ALWAYS carries the round marker, even with zero comments, and a
+# round-cap summary from Phase 7 goes in `body` with `comments: []` (marker
+# `<!-- ar-review round=N cap -->`).
+PAYLOAD=$(mktemp)
+jq -n --arg body "Code review, $COUNT comments
+
+<!-- ar-review round=$REVIEW_ROUND -->" --arg sha "$HEAD_SHA" \
+  '{body: $body, event: "COMMENT", commit_id: $sha, comments: []}' > "$PAYLOAD"
+# For each checked comment: append {path, line, side: "RIGHT", body} to .comments.
+#   [ -z "$LINE" ] && { echo "⚠️  Empty line number for $FILE_PATH, dropped. Fix the draft and re-run." >&2; continue; }
+#   jq --arg p "$FILE_PATH" --argjson l "$LINE" --arg b "$COMMENT_BODY" \
+#      '.comments += [{path: $p, line: $l, side: "RIGHT", body: $b}]' "$PAYLOAD" > "$PAYLOAD.tmp" && mv "$PAYLOAD.tmp" "$PAYLOAD"
+gh api --method POST "repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" --input "$PAYLOAD" \
+  || echo "⚠️  Batch review failed. Fix the payload (usually a line outside the diff) and retry ONCE; do not fall back to per-comment posting." >&2
+rm -f "$PAYLOAD"
 ```
 
 Side is `RIGHT` (the head version) for almost all comments; `LEFT` only when commenting on a removed line.
@@ -849,4 +928,4 @@ The clone at `~/ar-global-pr-reviewer/repos/$OWNER/$REPO/` is **always kept**, i
 - **Worktrees live alongside the clones** under `repos/$OWNER/WorkTrees/$REPO/`. The `a_g_worktree_*` helpers manage them.
 - **This skill never modifies the project's `main` or `master` branch**, only the `review-pr-{N}` local branch in a worktree.
 - **Comments are posted as YOU** (your authenticated `gh` user). The PR's other watchers will see them as your reviews. There's no "AI bot" identity for these.
-- **For multi-PR review** (a feature split across PRs): invoke the skill once per PR. Cross-PR analysis is out of scope for v1, use `a_sk_l_review_pr` from inside a checkout if you need that.
+- **For multi-PR review** (a feature split across PRs): invoke the skill once per PR. Cross-PR analysis is out of scope for v1, use `a_sk_review_pr` from inside a checkout if you need that.

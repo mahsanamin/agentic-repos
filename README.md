@@ -18,6 +18,7 @@ Agentic Repos writes your team's way of working down **once**, in a form every A
 
 - It reads a repository and **extracts that repo's real conventions into rules** an assistant can follow, so output looks like your code, not generic code.
 - It installs a **workflow that every session follows** the same way: read the rules, plan the change, write it on a branch, review it, open a PR. No more ad-hoc edits straight to `main`.
+- It runs on **Claude Code and Codex from the same files**. Both harnesses symlink one `skills/` directory, so there is no second copy and nothing to keep in sync.
 - It lives in **one place, shared by everyone**. Install it once per machine; update the whole team with `git pull`. Nothing to copy, nothing to drift.
 
 ## The one idea behind it
@@ -31,19 +32,26 @@ The global procedure reads each repo's config at runtime. That is the whole tric
 
 ```mermaid
 flowchart LR
+  subgraph HARN["Either harness"]
+    CC["Claude Code"]
+    CX["Codex"]
+  end
   subgraph G["Installed once per machine"]
     S["ar-* skills<br/>(plan · commit · PR · review · agent-ready)"]
-    H["session hook<br/>(steers every session)"]
+    H["session hook<br/>+ git safety guard"]
   end
   subgraph R["Written into each repo"]
     C["config_hints.json<br/>(what this repo is)"]
     U["coding rules<br/>(extracted from the code)"]
   end
+  CC -->|"same files"| S
+  CX -->|"same files"| S
   S -->|"reads at runtime"| C
   S -->|"follows"| U
+  classDef h fill:#334155,stroke:#1e293b,color:#ffffff,stroke-width:2px;
   classDef g fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff,stroke-width:2px;
   classDef r fill:#1f7a3a,stroke:#0f4d24,color:#ffffff,stroke-width:2px;
-  class S,H g; class C,U r;
+  class CC,CX h; class S,H g; class C,U r;
 ```
 
 ## How to use it
@@ -59,16 +67,16 @@ cd ~/agentic-devkit && ./install.sh && source ~/.zshrc
 
 Then install Agentic Repos itself, either way:
 
-**Option A: as a Claude Code plugin (recommended).** Git-based, versioned, and its hooks fire in every session automatically:
+**Option A: as a Claude Code plugin (recommended for Claude Code).** Git-based, versioned, and its hooks fire in every session automatically:
 
 ```
 /plugin marketplace add mahsanamin/agentic-repos
 /plugin install agentic-repos
 ```
 
-Update the whole team with `/plugin marketplace update`. This gives you the `ar-*` driver skills, the session hook, and the default-branch guard. To make and maintain agent-ready repos, also clone the repo (Option B) so `/ar-install` has the rule templates and setup procedures. Plugin users get framework updates from `/plugin marketplace update` (the shell freshness nudge is Option B only).
+Update the whole team with `/plugin marketplace update`. This gives you the `ar-*` driver skills, the session hook, and the git safety guard. To make and maintain agent-ready repos, also clone the repo (Option B) so `/ar-install` has the rule templates and setup procedures. Plugin users get framework updates from `/plugin marketplace update` (the shell freshness nudge is Option B only).
 
-**Option B: shell installer.** Also wires the shell helpers (worktree integration, the freshness check) that a plugin cannot:
+**Option B: shell installer.** Also wires the shell helpers (worktree integration, the freshness check) that a plugin cannot, and it is the only path that installs the Codex layer:
 
 ```bash
 git clone https://github.com/mahsanamin/agentic-repos ~/agentic-repos
@@ -77,11 +85,24 @@ cd ~/agentic-repos
 source ~/.zshrc
 ```
 
-`./install.sh` links the `ar-*` skills into `~/.claude/`, installs the session hook and the default-branch guard, and bootstraps agentic-devkit if it is missing. Re-run it after any `git pull`. Nothing gets copied into your projects. If you use the plugin for the Claude layer, run it with `--no-hooks` so the hooks are not wired twice.
+`./install.sh` links the `ar-*` skills into `~/.claude/`, installs the session hook and the git safety guard, and bootstraps agentic-devkit if it is missing. Re-run it after any `git pull`. Nothing gets copied into your projects. If you use the plugin for the Claude layer, run it with `--no-hooks` so the hooks are not wired twice.
 
-### 2. Make a repo agent-ready (once per repo)
+### 2. Add Codex (optional)
 
-Inside a project, run the install command from Claude Code:
+`./install-codex.sh` is the Codex half of `./install.sh`. Run `./install.sh` first, because it is what installs agentic-devkit and the Codex installer renders that devkit's agents.
+
+```bash
+./install-codex.sh                                  # the global Codex layer
+./install-codex.sh --target /path/to/your/repo      # that repo's .codex layer and the git guard hook
+```
+
+Both installers symlink the **same** `skills/` directory: Claude Code reads `~/.claude/skills/`, Codex reads `~/.agents/skills/`, and both point at the same files. Edit a skill once and both harnesses see it. Agents are the one rendered artifact, regenerated from agentic-devkit into `~/.codex/agents/*.toml` on every run.
+
+**A fresh Codex install is unprotected until you trust the hook.** Codex makes you review a project hook once: open `/hooks`, find the Agentic Repos protected-branch hook, and trust it. Until you do, the guard does not run and does not announce itself. [`docs/CODEX.md`](./docs/CODEX.md) has the detail.
+
+### 3. Make a repo agent-ready (once per repo)
+
+Inside a project, run the install command:
 
 ```
 /ar-install
@@ -89,7 +110,7 @@ Inside a project, run the install command from Claude Code:
 
 It reads the codebase, extracts its conventions into rule files, writes `config_hints.json` and `AGENTS.md`, and sets up the templates. From then on, every session in that repo is recognized as agent-ready and steered onto the workflow. To re-assess or refresh the rules later, run `ar-agent-ready`.
 
-### 3. Do the work
+### 4. Do the work
 
 Describe a task and let it run through the flow:
 
@@ -99,6 +120,21 @@ ar-taskflow
 
 Raw prompt, then understand, then plan, then code, then document, then PR. On a branch. Reviewed. Following the rules that were extracted from your own repo.
 
+## What stops a bad command
+
+`scripts/ar-session/guard-default-branch.sh` runs as a `PreToolUse` hook on both harnesses. It is one script, so the two harnesses cannot disagree with each other. It refuses:
+
+- a force-push anywhere, and `git push --all` or `--mirror`;
+- `--force-with-lease` or a rebase onto a shared branch (`main`, `master`, `develop`, `staging`, `release/*`, `story/*`) or from a detached HEAD;
+- a whole-tree `git checkout .` or `git restore .`;
+- `git reset --hard`, `--merge` or `--keep`;
+- `git clean` without a dry run;
+- any commit or push that would land on the repo's default branch.
+
+The in-progress rebase verbs (`--continue`, `--abort`, `--skip`) always pass, so a rebase can always be finished or backed out.
+
+This is why the shipped permission settings can allow `git` and `gh` wholesale. A permission entry is a prefix match, so it cannot stop `bash -c` or a rephrased command: safety lives in the guard, not in prompts. The guard is still a seatbelt and not a boundary, because it inspects a shell string it cannot fully resolve. Server-side branch protection on the default branch is the authoritative control.
+
 ## What you get
 
 **Driver skills (`ar-*`, global):**
@@ -106,17 +142,25 @@ Raw prompt, then understand, then plan, then code, then document, then PR. On a 
 - `ar-taskflow` (+ `-planner`, `-resume`, `-review`, `-fix-comments`, `-remember`), the full task workflow from idea to reviewed PR.
 - `ar-agent-ready`, read a repo, extract its rules, report a readiness scorecard.
 - `ar-optimizer`, audit rule files for redundancy and staleness.
+- `ar-optimize-docs`, `ar-optimize-doc-comments`, `ar-optimize-inline-comments`, audit standalone documents, the blocks attached to declarations, and the comments inside a body. Each one defers a finding outside its own half instead of fixing it.
+- `ar-optimize-tests`, audit a suite for cost: which tests pay for a framework they do not need, and which no pipeline runs at all.
+- `ar-sonar-sweep`, drive a static-analysis backlog to zero in bounded, reviewable batches.
 - `ar-ticket-creator`, one clean, PR-sized ticket in whatever tracker the repo uses.
 - `ar-record-improvement` / `ar-add-improvement`, the feedback loop that lets the framework learn from real use.
 - `ar-global-pr-reviewer`, review any GitHub PR from anywhere on your machine.
 - `ar-init-skills`, `ar-init-mcps`, per-repo config bootstrap.
 
+**Automated review stops on its own.** A reviewer agent and a fixer agent working the same PR share a round budget, `review.max_agent_rounds`, default 3. Rounds are counted from markers each side leaves on the PR, so a fresh session computes the same number. Past the budget the fixer stops with `ROUND CAP`, the reviewer posts one summary, and a human decides whether the PR continues, splits, or changes approach. Green CI does not extend the budget.
+
 **Tracker-agnostic.** Each repo declares its tracker in `config_hints.json`: `github` (via the `gh` CLI, the default), `jira`, `linear`, or `none`. Skills never hardcode a tracker.
 
 ## Learn more
 
-- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), the full model: the two layers, the devkit dependency, the session hook, rule extraction, and the feedback loop.
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md), how to add or change a skill, agent, or rule.
+- [`GUIDE.md`](./GUIDE.md), the operator's manual: install, permissions, autonomous mode, team adoption, troubleshooting.
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), the full model: the two layers, the devkit dependency, the session hook and guard, rule extraction, and the feedback loop.
+- [`docs/CODEX.md`](./docs/CODEX.md), how both harnesses share one set of files, and the `/hooks` trust step.
+- [`AGENTS.md`](./AGENTS.md), the source of truth for working in this repository. `CLAUDE.md` is a two-line import of it.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md), how to add or change a skill or rule. Check a change with `./install-codex.sh --check-only`, which runs every contract suite in `scripts/ar-lint/`.
 - [agentic-devkit](https://github.com/mahsanamin/agentic-devkit), the shared primitives this builds on.
 
 ## License

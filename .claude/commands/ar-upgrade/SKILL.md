@@ -92,11 +92,12 @@ Adapt every stack-specific element to the target's real values (read them from `
 ## Phase 3: Finalize the Local Layer
 
 1. `config_hints.json`: set `framework_version` to `FRAMEWORK_VERSION`; run the `test_command` best-effort detection (only-if-empty) from `setup.md` -> **Step: Create config_hints.json**. Leave every other field verbatim.
-2. `.claude/settings.json`: run `setup.md` -> **Step: Write Autonomous Settings** in merge mode, so any new allow/deny entries from the current template land without clobbering the team's existing permissions. Still no duplicated global hooks. If the user asks to add the opt-in global-layer precheck to this already-adopted repo, run `setup.md` -> **Step: Write Global-Layer Precheck Hook**.
-3. `AGENTS.md`: refresh only the framework-managed sections and the footer version.
-4. Verify: run `setup.md` -> **Step: Verification** against the rules, `AGENTS.md`, and `config_hints.json`. Fix and re-run until PASS.
-5. Redundancy sweep: if rule files changed in Phase 2, invoke `ar-optimizer` over `standards_location` to catch overlap introduced by the merge, then reconcile. Skip if no rules changed.
-6. Commit: commit the changes on `BRANCH_NAME`. Do not push automatically; leave the push + PR to the user.
+2. `.claude/settings.json`: run `setup.md` -> **Step: Write Autonomous Settings** in merge mode, so any new allow/ask/deny entries from the current template land without clobbering the team's existing permissions. An upgrade from before the `ask` list existed gains it here. Still no duplicated global hooks. If the user asks to add the opt-in global-layer precheck to this already-adopted repo, run `setup.md` -> **Step: Write Global-Layer Precheck Hook**.
+3. (Optional) Codex layer: if the repo has a `.codex/` directory, refresh it by running `setup.md` -> **Step: Add Codex Support**. If it does not, offer the step rather than assuming: adding it writes two committed files and requires each Codex user to trust the hook once.
+4. `AGENTS.md`: refresh only the framework-managed sections and the footer version.
+5. Verify: run `setup.md` -> **Step: Verification** against the rules, `AGENTS.md`, and `config_hints.json`. Fix and re-run until PASS.
+6. Redundancy sweep: if rule files changed in Phase 2, invoke `ar-optimizer` over `standards_location` to catch overlap introduced by the merge, then reconcile. Skip if no rules changed.
+7. Commit: commit the changes on `BRANCH_NAME`. Do not push automatically; leave the push + PR to the user.
 
 ## Phase 4: Nudge the Global Refresh
 

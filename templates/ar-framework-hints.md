@@ -1,8 +1,8 @@
 # Agentic Repos, Quick Reference
 
-You are operating on a machine with Agentic Repos installed. This file lives at `~/.claude/ar-framework-hints.md` (installed by `install.sh`) and is referenced from `~/.claude/CLAUDE.md`, so every Claude Code session picks it up. Do not edit it manually; re-run the installer to refresh.
+You are operating on a machine with Agentic Repos installed. This file lives at `~/.claude/ar-framework-hints.md` (installed by `install.sh`) and at `~/.codex/ar-framework-hints.md` (installed by `install-codex.sh`), referenced from `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md`, so every session on either harness picks it up. Do not edit it manually; re-run the installer to refresh.
 
-Agentic Repos is the AI-readiness layer. It builds on **agentic-devkit**, which supplies the reusable agents (`a_sag_*`), the atomic skills (`a_sk_commit`, `a_sk_pr`, `a_sk_l_review_pr`, `a_sk_sonarqube_coverage`), and the worktree helpers (`a_g_worktree_*`). Both are installed globally.
+Agentic Repos is the AI-readiness layer. It builds on **agentic-devkit**, which supplies the reusable agents (`a_sag_*`), the atomic skills (`a_sk_commit`, `a_sk_pr`, `a_sk_review_pr`, `a_sk_sonarqube_coverage`), and the worktree helpers (`a_g_worktree_*`). Both are installed globally.
 
 ## Global skills (available in any project)
 
@@ -14,12 +14,34 @@ These live at `~/.claude/skills/` (symlinks into the framework repo) and are inv
 - **ar-ticket-creator**, one PR-sized ticket in whatever tracker the repo declares.
 - **ar-record-improvement**, capture a framework-improvement suggestion from inside any project. Writes a structured file to `_AgenticRepos/improvements/` for later triage. It is model-invocable, so capture friction the moment it surfaces.
 - **ar-global-pr-reviewer**, review any GitHub PR from anywhere on the machine.
+- **ar-optimize-docs**, audit a doc set against the lean-docs rule: verify every claim against the code, cut what git already carries.
+- **ar-optimize-doc-comments**, audit the documentation blocks attached to declarations; fix provable signature drift, propose the rest.
+- **ar-optimize-inline-comments**, audit the comments inside a body. Proposes every removal for a human, never deletes unattended.
+- **ar-optimize-tests**, audit a suite for cost: which tests pay for a framework they do not need, and which no pipeline runs at all.
+- **ar-sonar-sweep**, drive a whole static-analysis backlog to zero in bounded, reviewable batches.
+
+### Scope boundary
+
+The four `ar-optimize*` comment/doc skills partition the same codebase, and each defers a finding outside its own half rather than fixing it:
+
+| Skill | Owns | Defers |
+|---|---|---|
+| `ar-optimize-docs` | standalone documents | anything inside a source file |
+| `ar-optimize-doc-comments` | the block attached to a declaration | comments inside a body, and standalone documents |
+| `ar-optimize-inline-comments` | comments inside a body | declaration-attached blocks, and standalone documents |
+| `ar-optimize-tests` | what a test costs and which layer it runs at | what a test asserts (that is code review) |
+
+A finding outside a skill's scope is recorded as `external, deferred` and left alone.
 
 ## Every session follows the agent-ready workflow (the session hook)
 
 `install.sh` wires a **SessionStart hook** (`~/.claude/scripts/ar-session/session-start.sh`) into `~/.claude/settings.json`. In any repo that declares itself agent-ready (has `config_hints.json` / `AGENTS.md`), it injects a reminder to: read the project rules first, drive real work through `ar-taskflow`, stay off the default branch, and capture friction with `ar-record-improvement`. It is silent in non-agent-ready repos.
 
-A **default-branch / force-push guard** (`~/.claude/scripts/ar-session/guard-default-branch.sh`) is wired as a `PreToolUse(Bash)` hook: it refuses commits/pushes on the code repo's default branch and blocks force-push.
+A **git safety guard** (`~/.claude/scripts/ar-session/guard-default-branch.sh`) is wired as a `PreToolUse(Bash)` hook. It refuses: force-push anywhere; `--force-with-lease` or a rebase onto a shared branch (main, master, develop, staging, `release/*`, `story/*`); a whole-tree `git checkout .` or `git restore .`; `git reset --hard/--merge/--keep`; `git clean` without a dry run; and any commit or push that would land on the code repo's default branch. The in-progress rebase verbs (`--continue`, `--abort`, `--skip`) always pass, so a rebase can always be finished or backed out.
+
+This is why the shipped permission settings can allow `git` and `gh` wholesale: safety lives in the guard, not in prompts. A permission entry is a prefix match and cannot stop `bash -c`. Its regression suite is `scripts/ar-lint/git-guard-cases.sh`.
+
+**Codex runs the same script.** `install-codex.sh` registers it as a `PreToolUse` hook in the repo's `.codex/hooks.json`, so there is one predicate and one behaviour across both harnesses. Codex requires you to trust a project hook once via `/hooks`; until you do, it does not run. See `docs/CODEX.md`.
 
 ## Worktree helpers (from agentic-devkit)
 

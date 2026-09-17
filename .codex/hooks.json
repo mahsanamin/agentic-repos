@@ -1,0 +1,18 @@
+{
+  "description": "Agentic Repos repository safety hooks for Codex.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/ar-session/guard-default-branch.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking protected-branch policy"
+          }
+        ]
+      }
+    ]
+  }
+}

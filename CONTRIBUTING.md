@@ -13,6 +13,10 @@ This framework is consumed by other repos via `ar-install` / `ar-upgrade`. That 
 | Change a framework-operational command (installer) | `.claude/commands/<name>/SKILL.md` |
 | Change a global helper script | `scripts/<area>/...` |
 | Update the install/upgrade procedure | `setup.md` |
+| Change how this repo itself is worked in | `AGENTS.md` (`CLAUDE.md` is a two-line import of it, do not put guidance there) |
+| Change what a git command is allowed to do | `scripts/ar-session/guard-default-branch.sh`, then re-run its suite |
+| Change a permission | `settings.json` (this repo) or `templates/settings.template.json` (target repos) |
+| Change the Codex layer | `install-codex.sh`, `docs/CODEX.md` |
 
 ## Workflow
 
@@ -21,11 +25,12 @@ This framework is consumed by other repos via `ar-install` / `ar-upgrade`. That 
 3. Use the `ar-add-improvement` command (inside this repo) to:
    - Decide the version bump (see [`VERSIONING.md`](./VERSIONING.md)).
    - Update `config_hints.json` → `framework_version` (canonical source).
-   - Update the `Version:` line in [`CLAUDE.md`](./CLAUDE.md).
+   - Update the `Version:` line in [`AGENTS.md`](./AGENTS.md) and in [`CLAUDE.md`](./CLAUDE.md).
    - Add a precise `CHANGELOG.md` entry, the entry **drives the incremental update**, so list affected files explicitly under `**Added:**` / `**Removed:**` / `**Changed:**`.
-4. Test the change by installing into a real target project (`ar-install` for greenfield, `ar-upgrade` for incremental).
-5. Open a PR. The PR description should explain *why* and link to any originating task / discussion.
-6. After merge, every developer should `git pull && ./install.sh` from this repo to refresh the global layer.
+4. Run the contract suites. `./install-codex.sh --check-only` syntax-checks the shipped scripts and runs every suite in `scripts/ar-lint/`. A change to the guard, either installer, or either settings file MUST go green before it ships, and a new refusal or a new installer behaviour needs a case of its own.
+5. Test the change by installing into a real target project (`ar-install` for greenfield, `ar-upgrade` for incremental).
+6. Open a PR. The PR description should explain *why* and link to any originating task / discussion.
+7. After merge, every developer should `git pull && ./install.sh` from this repo to refresh the global layer, plus `./install-codex.sh` if they use Codex.
 
 ## Version bumps in short
 

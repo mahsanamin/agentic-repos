@@ -106,23 +106,23 @@
     {
       "id": 9,
       "prompt": "Use ar-self-reviewer to review https://github.com/example-org/example-service/pull/455",
-      "expected_output": "The skill refuses: its input must be a mahsanamin/agentic-repos PR, and #455 belongs to a target project (example-service). It points the user to a_sk_l_review_pr / ar-global-pr-reviewer for target-project PRs and does not attempt a project-noise review (project-specific content is expected and correct in a project repo).",
+      "expected_output": "The skill refuses: its input must be a mahsanamin/agentic-repos PR, and #455 belongs to a target project (example-service). It points the user to a_sk_review_pr / ar-global-pr-reviewer for target-project PRs and does not attempt a project-noise review (project-specific content is expected and correct in a project repo).",
       "files": [],
       "assertions": [
         "Detects the PR is from example-service, not mahsanamin/agentic-repos",
         "Refuses to run and explains it reviews agentic-repos PRs only",
-        "Redirects to a_sk_l_review_pr or ar-global-pr-reviewer for target-project PRs",
+        "Redirects to a_sk_review_pr or ar-global-pr-reviewer for target-project PRs",
         "Does not produce project-noise findings against the target-project PR"
       ]
     },
     {
       "id": 10,
       "prompt": "Review framework PR #6 with ar-self-reviewer and post the findings.",
-      "expected_output": "First asks nothing extra (PR given), reviews PR #6, and presents findings as a draft in a_sk_l_review_pr comment style: each comment starts with a location line (📍 `path:line`), then a one-sentence Problem and one-sentence Fix, with a Post/Internal action. It shows the draft table and waits for the user to pick which to post before any batch POST to the PR, it does not post a freeform prose summary or auto-post.",
+      "expected_output": "First asks nothing extra (PR given), reviews PR #6, and presents findings as a draft in a_sk_review_pr comment style: each comment starts with a location line (📍 `path:line`), then a one-sentence Problem and one-sentence Fix, with a Post/Internal action. It shows the draft table and waits for the user to pick which to post before any batch POST to the PR, it does not post a freeform prose summary or auto-post.",
       "files": [],
       "assertions": [
         "Presents findings as a draft and waits for user approval before posting",
-        "Each comment is location-first (📍 `path:line`) with one-sentence Problem and Fix, matching a_sk_l_review_pr format",
+        "Each comment is location-first (📍 `path:line`) with one-sentence Problem and Fix, matching a_sk_review_pr format",
         "Does not post a freeform narrative summary (no 'I ran our lens over this PR' preamble)",
         "Posts as a single batch review only after the user selects comments"
       ]

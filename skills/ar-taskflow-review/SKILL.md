@@ -66,7 +66,7 @@ All review files go to `reviews_root` from `.claude/skill.config`, fully **git-i
     └── review-report.md                     ← Review iterations (appended)
 ```
 
-No **tracked** file is modified, the review is a local working artifact written only to the git-ignored `reviews_root`. If you need a permanent record, use `a_sk_l_review_pr` to post comments on the PR itself.
+No **tracked** file is modified, the review is a local working artifact written only to the git-ignored `reviews_root`. If you need a permanent record, use `a_sk_review_pr` to post comments on the PR itself.
 
 ## Implementation
 
@@ -185,13 +185,26 @@ echo "$coding_rules"
 
 ### 5. Run Code Review Analysis
 
-Use the Task tool with the project-specific code reviewer agent:
+**Resolve the reviewer agent first, then invoke.** Prefer the project-specific reviewer when it exists, and fall back to the generic one:
 
-**Note**: This uses your project's own code reviewer agent if one exists (a `*-code-reviewer` agent under `.claude/agents/` that understands your project's patterns and coding rules). If none exists, it falls back to the general `a_sag_code_reviewer` agent from agentic-devkit.
-
+```bash
+# Resolve a project-specific reviewer, named "<something>-code-reviewer".
+# Do NOT test a literal "{project}" path: that token is documentation, not a shell
+# variable, and nothing substitutes it at install time, so such a test never matches.
+# Uses `find`, not a glob: under zsh an unmatched glob is a fatal "no matches found",
+# and this may run under zsh.
+reviewer="a_sag_code_reviewer"
+for d in $(find .claude/agents -maxdepth 1 -type d -name '*-code-reviewer' 2>/dev/null); do
+  [ "$(basename "$d")" = "a_sag_code_reviewer" ] && continue
+  [ -f "$d/AGENT.md" ] && reviewer="$(basename "$d")" && break
+done
 ```
+
+An installed project-specific `*-code-reviewer` deeply understands the project's patterns and coding rules; `a_sag_code_reviewer` (from agentic-devkit) is the generic fallback used when no project-specific agent is installed.
+
+```text
 Task(
-  subagent_type="a_sag_code_reviewer",  # or your project-specific reviewer
+  subagent_type="{reviewer}",  # resolved above: an installed *-code-reviewer if present, else a_sag_code_reviewer
   description="Review code against rules",
   prompt="Review the code changes in {diff_file} against coding rules.
 
@@ -202,7 +215,15 @@ Task(
 
   Read .claude/config_hints.json to find the standards_location.
   Then read ALL *.md files in that directory, these are the coding rules.
-  Apply ONLY rules relevant to the patterns you see in the diff.
+
+  Apply, in both cases:
+  1. EVERY rule whose frontmatter has alwaysApply: true - these apply to the
+     change regardless of what the diff contains. A docs-only or config-only
+     diff does NOT exempt them.
+  2. PLUS the rules whose patterns match what you see in the diff.
+
+  Skip only the diff-matched rules that have nothing to do with this change.
+  Never skip an always-apply rule.
 
   For each file in the diff:
   1. Identify what changed (transactions, queries, schema, endpoints, etc.)
@@ -451,5 +472,5 @@ Example commit message:
 - All review files are **git-ignored**, no **tracked** file is modified. The only writes are to git-ignored AI-framework paths (the `reviews_root` / `.claude/reviews/` fallback), which are git-ignored at install time; if they were not, those writes would dirty the repo.
 - Review output is saved to `reviews_root` from `.claude/skill.config` (falls back to `.claude/reviews/`)
 - Each run overwrites the diff and appends to the review report
-- To post review feedback permanently, use `a_sk_l_review_pr` to post comments on the PR
-- Uses **project-specific a_sag_code_reviewer agent** which deeply understands project patterns
+- To post review feedback permanently, use `a_sk_review_pr` to post comments on the PR
+- Uses the reviewer resolved in Step 5: an installed **project-specific `*-code-reviewer`** when one is present (it understands the project's own patterns), otherwise the generic **`a_sag_code_reviewer`**. Most projects run the generic one

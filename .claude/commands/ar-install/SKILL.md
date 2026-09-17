@@ -94,12 +94,13 @@ Run the **Config Writer** (`setup.md` -> **Config Writer**), then settings, temp
 1. `config_hints.json`: `setup.md` -> **Step: Create config_hints.json** (schema + `test_command` detection).
 2. `AGENTS.md`: `setup.md` -> **Step: Create AGENTS.md** (scanner-compat rules; build commands + structure from `_codemap.md`, rule list from `_install_manifest.json`).
 3. `.claude/skill.config`: `setup.md` -> **Step: Create .claude/skill.config**.
-4. `.claude/settings.json`: `setup.md` -> **Step: Write Autonomous Settings** (autonomous permissions from the template, merged not clobbered; no duplicated global hooks).
-5. (Optional) Global-layer precheck hook: `setup.md` -> **Step: Write Global-Layer Precheck Hook** (opt-in; default writes nothing).
-6. `CLAUDE.md`: the standard `@AGENTS.md` pointer.
-7. Templates: `setup.md` -> **Step: Setup Templates**.
-8. ERD (only if a database is detected): `setup.md` -> **Step: Generate ERD Documentation**.
-9. `.gitignore` / `.dockerignore`: `setup.md` -> **Step: Update .gitignore / .dockerignore**.
+4. `.claude/settings.json`: `setup.md` -> **Step: Write Autonomous Settings** (allow/ask/deny from the template, merged not clobbered, `ask` included; no duplicated global hooks).
+5. (Optional) Codex layer: `setup.md` -> **Step: Add Codex Support** (ask first; writes `.codex/config.toml` and the git-guard hook, nothing else). Say the `/hooks` trust step out loud, and do not call the repo protected until it is done.
+6. (Optional) Global-layer precheck hook: `setup.md` -> **Step: Write Global-Layer Precheck Hook** (opt-in; default writes nothing).
+7. `CLAUDE.md`: the standard `@AGENTS.md` pointer.
+8. Templates: `setup.md` -> **Step: Setup Templates**.
+9. ERD (only if a database is detected): `setup.md` -> **Step: Generate ERD Documentation**.
+10. `.gitignore` / `.dockerignore`: `setup.md` -> **Step: Update .gitignore / .dockerignore**.
 
 ## Phase 5: Verify
 

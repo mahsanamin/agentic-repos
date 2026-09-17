@@ -112,7 +112,7 @@ done
 # ---------------------------------------------------------------------------
 step "Scripts (~/.claude/scripts/)"
 run mkdir -p "$HOME/.claude/scripts"
-for sd in ar-freshness ar-sonarqube ar-session; do
+for sd in ar-freshness ar-sonarqube ar-session ar-lint; do
   src="$FRAMEWORK_DIR/scripts/$sd"
   [ -d "$src" ] || continue
   starget="$HOME/.claude/scripts/$sd"
@@ -175,6 +175,9 @@ else
     if [ "$s" -gt 0 ]; then
       t="$(mktemp)"; awk -v a="$MARKER_START" -v b="$MARKER_END" '$0==a{k=1;next} $0==b{k=0;next} !k' "$RC_FILE" > "$t" && mv "$t" "$RC_FILE"
     fi
+    # Strip trailing blank lines first: otherwise the separator blank line below
+    # is added afresh on every run and the file grows a line per install.
+    t="$(mktemp)"; awk 'NF{p=NR} {l[NR]=$0} END{for(i=1;i<=p;i++) print l[i]}' "$RC_FILE" > "$t" && mv "$t" "$RC_FILE"
     {
       echo ""; echo "$MARKER_START"
       printf 'export AR_FRAMEWORK_DIR=%q\n' "$FRAMEWORK_DIR"
@@ -213,6 +216,7 @@ if ! $DRY_RUN; then
     touch "$GC"
     if [ "$(grep -cF "$HS" "$GC" || true)" -eq "$(grep -cF "$HE" "$GC" || true)" ]; then
       if grep -qF "$HS" "$GC"; then t="$(mktemp)"; awk -v a="$HS" -v b="$HE" '$0==a{k=1;next} $0==b{k=0;next} !k' "$GC" > "$t" && mv "$t" "$GC"; fi
+      t="$(mktemp)"; awk 'NF{p=NR} {l[NR]=$0} END{for(i=1;i<=p;i++) print l[i]}' "$GC" > "$t" && mv "$t" "$GC"
       {
         echo ""; echo "$HS"
         echo "Agentic Repos is installed. Read \`~/.claude/ar-framework-hints.md\` for the catalog of global \`ar-*\` skills and helpers. In any repo that has \`config_hints.json\`/\`AGENTS.md\`, follow its agent-ready workflow: read the project rules, drive real work through \`ar-taskflow\`, never commit on the default branch, and capture friction with \`ar-record-improvement\`."
